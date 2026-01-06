@@ -1,0 +1,50 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - revive
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unconvert
+    - misspell
+    - gofmt
+    - goimports
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        severity: error
+        arguments:
+          - checkPrivateReceivers
+          - sayRepetitiveInsteadOfStutters
+      - name: blank-imports
+      - name: context-as-argument
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: if-return
+      - name: increment-decrement
+      - name: var-declaration
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+  goimports:
+    local-prefixes: github.com/arisros/fate
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - revive
+        - unused
+    - linters:
+        - unused
+      text: "\\.apply is unused"
+  max-issues-per-linter: 0
+  max-same-issues: 0
