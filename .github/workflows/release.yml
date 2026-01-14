@@ -20,21 +20,10 @@ jobs:
       - name: verify tests pass at tag
         run: go test ./...
 
-      - name: extract changelog section
-        id: changelog
-        run: |
-          tag="${GITHUB_REF_NAME}"
-          awk -v ver="${tag#v}" '
-            $0 ~ "^## \\[" ver "\\]" {grab=1; next}
-            grab && /^## \[/ {exit}
-            grab {print}
-          ' CHANGELOG.md > RELEASE_NOTES.md
-          if [ ! -s RELEASE_NOTES.md ]; then
-            echo "Release ${tag}." > RELEASE_NOTES.md
-          fi
-
-      - name: create release
-        uses: softprops/action-gh-release@v2
+      - name: run GoReleaser (binaries + archives + release notes)
+        uses: goreleaser/goreleaser-action@v6
         with:
-          body_path: RELEASE_NOTES.md
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
