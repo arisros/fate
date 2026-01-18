@@ -2,7 +2,7 @@
   "use strict";
   var machine = window.SCS_MACHINE;
   var base = "/sim/" + encodeURIComponent(machine);
-  var NODE_W = 188, HEAD_H = 26, ROW_H = 20, PAD_TOP = 30;
+  var NODE_W = 200, HEAD_H = 28, ROW_H = 22, PAD_TOP = 32;
 
   var state = {
     nodes: {},        // id -> {node, abs:{x,y,w,h}, el, events:[edge...], el}
@@ -36,7 +36,7 @@
     el.style.display = "block"; el.className = kind || ""; el.textContent = msg;
   }
 
-  function nodeBox(n) { return { w: NODE_W, h: HEAD_H + n.events.length * ROW_H + 6 }; }
+  function nodeBox(n) { return { w: NODE_W, h: HEAD_H + n.events.length * ROW_H + 8 }; }
   function headerH(n) { return PAD_TOP + n.events.length * ROW_H; }
 
   function buildAndLayout() {
@@ -357,13 +357,18 @@
     document.getElementById("state-path").textContent = snap.path;
     setBadge(snap.status);
     state.activePaths = (snap.path || "").split(" | ").map(function (s) { return s.trim(); }).filter(Boolean);
-    state.lastCtx = snap.context || "{}";
+    state.lastCtx = (snap.context === undefined || snap.context === null) ? {} : snap.context;
     renderContext(); updateActive();
   }
   function setBadge(s) { var b = document.getElementById("status-badge"); b.textContent = s; b.className = "badge " + s; }
   function renderContext() {
     var pre = document.getElementById("context"), q = document.getElementById("ctx-filter").value.trim(), pretty;
-    try { pretty = JSON.stringify(JSON.parse(state.lastCtx), null, 2); } catch (_) { pretty = state.lastCtx; }
+    var val = state.lastCtx;
+    if (typeof val === "string") {
+      try { pretty = JSON.stringify(JSON.parse(val), null, 2); } catch (_) { pretty = val; }
+    } else {
+      try { pretty = JSON.stringify(val, null, 2); } catch (_) { pretty = String(val); }
+    }
     if (!q) { pre.textContent = pretty; return; }
     var e = pretty.replace(/[&<>]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]; });
     var re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
