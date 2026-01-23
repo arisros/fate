@@ -21,7 +21,7 @@ func buildRegistry() []registryEntry {
 		out = append(out, registryEntry{
 			name:    d.Name,
 			summary: d.Summary,
-			build:   func() fate.MachineDescriptor { return d.Machine().Describe() },
+			build:   d.Descriptor,
 		})
 	}
 	return out

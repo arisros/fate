@@ -9,9 +9,25 @@ flagged explicitly under a **Breaking** heading.
 
 ## [Unreleased]
 
+### Breaking
+- Renamed the CLI binaries to match the product: `scs` → **`fate`**, `scs-web` →
+  **`fate-studio`**. The server env var is now `FATE_STUDIO_ADDR` (was
+  `SCS_WEB_ADDR`); the Docker image target is `fate-studio`.
+
+### Added
+- A `counter` demo machine whose transitions mutate context (INC/DEC/RESET), so
+  the studio's context panel shows `{"count": N}` updating live.
+
+### Fixed
+- Studio context panel rendered `[object Object]`: the SSE snapshot's `context`
+  arrives already JSON-parsed, but the client re-`JSON.parse`d it. Now handled
+  as a value.
+- Studio nodes clipped their bottom action rows: locked header/row heights to the
+  JS box math, added nowrap + ellipsis, enlarged the node box.
+
 ## [0.2.0] - 2026-06-05
 
-The studio release: a viewer/simulator and the `scs` / `scs-web` binaries.
+The studio release: a viewer/simulator and the `fate` / `fate-studio` binaries.
 
 ### Added
 - `fate/studio` — an embeddable, dependency-free HTTP statechart studio: a chart
@@ -20,11 +36,11 @@ The studio release: a viewer/simulator and the `scs` / `scs-web` binaries.
   per-state inspection, and a per-browser-session simulator (send, undo, reset,
   import/export, timeline). Carries forward the proof-of-concept's resilience
   fixes (elk fallback layout, NaN guards, content-versioned asset cache-busting).
-- `scs` CLI (list / view / describe / snap / diff) and `scs-web` server, serving
+- `fate` CLI (list / view / describe / snap / diff) and `fate-studio` server, serving
   a set of generic demo machines (traffic light, media player, build pipeline,
   deep-history document editor).
-- A multi-stage, distroless `Dockerfile` for `scs-web`, and a GoReleaser config
-  building the `scs` / `scs-web` binaries on release (validated in CI).
+- A multi-stage, distroless `Dockerfile` for `fate-studio`, and a GoReleaser config
+  building the `fate` / `fate-studio` binaries on release (validated in CI).
 - Studio endpoint coverage via `httptest`; the studio package ships in the root
   module and keeps it standard-library only.
 

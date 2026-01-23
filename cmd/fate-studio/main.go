@@ -1,4 +1,4 @@
-// scs-web — an HTTP statechart studio serving fate's demo machines.
+// fate-studio — an HTTP statechart studio serving fate's demo machines.
 package main
 
 import (
@@ -10,17 +10,17 @@ import (
 )
 
 func main() {
-	addr := os.Getenv("SCS_WEB_ADDR")
+	addr := os.Getenv("FATE_STUDIO_ADDR")
 	if addr == "" {
 		addr = ":8090"
 	}
 
-	srv := studio.NewServer("scs-web")
+	srv := studio.NewServer("fate studio")
 	for _, d := range demos.All() {
-		srv.Register(demos.LiveEntry(d))
+		srv.Register(d.Entry())
 	}
 
-	log.Printf("scs-web listening on %s", addr)
+	log.Printf("fate-studio listening on %s", addr)
 	if err := srv.ListenAndServe(addr); err != nil {
 		log.Fatalf("ListenAndServe: %v", err)
 	}

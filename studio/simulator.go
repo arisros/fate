@@ -197,7 +197,7 @@ func (st *sessionStore) reap() {
 	}
 }
 
-const sessionCookie = "scs_sid"
+const sessionCookie = "fate_sid"
 
 func tokenFor(w http.ResponseWriter, r *http.Request) string {
 	if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
@@ -277,7 +277,7 @@ func (s *Server) handleSimPage(w http.ResponseWriter, r *http.Request, name stri
 	}
 	evJSON, _ := json.Marshal(sess.availableEvents())
 	nameJSON, _ := json.Marshal(name)
-	globals := "window.SCS_MACHINE=" + string(nameJSON) + ";window.SCS_EVENTS=" + string(evJSON) + ";"
+	globals := "window.FATE_MACHINE=" + string(nameJSON) + ";window.FATE_EVENTS=" + string(evJSON) + ";"
 
 	w.Header().Set("content-type", "text/html; charset=utf-8")
 	renderShell(w, simShell,
