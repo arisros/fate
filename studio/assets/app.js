@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  var machine = window.SCS_MACHINE;
+  var machine = window.FATE_MACHINE;
   var base = "/sim/" + encodeURIComponent(machine);
   var NODE_W = 200, HEAD_H = 28, ROW_H = 22, PAD_TOP = 32;
 
@@ -8,23 +8,23 @@
     nodes: {},        // id -> {node, abs:{x,y,w,h}, el, events:[edge...], el}
     edges: [],        // raw edges
     activePaths: [],  // active leaf dot-paths
-    available: window.SCS_EVENTS || [],
+    available: window.FATE_EVENTS || [],
     sent: [],
     view: { x: 30, y: 30, scale: 1 },
     pos: {},          // id -> {x,y} manual overrides (localStorage)
     lastCtx: "{}"
   };
 
-  function curTheme() { return localStorage.getItem("scs-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
-  function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); localStorage.setItem("scs-theme", t); }
+  function curTheme() { return localStorage.getItem("fate-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
+  function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); localStorage.setItem("fate-theme", t); }
   function toast(msg, kind) {
     var box = document.getElementById("toasts"), el = document.createElement("div");
     el.className = "toast " + (kind || ""); el.textContent = msg; box.appendChild(el);
     setTimeout(function () { el.style.opacity = "0"; setTimeout(function () { el.remove(); }, 200); }, 3500);
   }
 
-  function loadPos() { try { return JSON.parse(localStorage.getItem("scs-pos-" + machine) || "{}"); } catch (_) { return {}; } }
-  function savePos() { localStorage.setItem("scs-pos-" + machine, JSON.stringify(state.pos)); }
+  function loadPos() { try { return JSON.parse(localStorage.getItem("fate-pos-" + machine) || "{}"); } catch (_) { return {}; } }
+  function savePos() { localStorage.setItem("fate-pos-" + machine, JSON.stringify(state.pos)); }
 
   function status(msg, kind) {
     var el = document.getElementById("canvas-status");

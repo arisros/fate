@@ -9,14 +9,14 @@ import (
 	sc "github.com/arisros/fate"
 )
 
-const usage = `scs — statechart-studio (data-layer commands)
+const usage = `fate — statechart-studio (data-layer commands)
 
 Commands:
-  scs list                            List built-in demo machines
-  scs view <machine> [state-path]     Render ASCII state diagram + transition sidebar
-  scs describe <machine>              Print JSON descriptor (pretty)
-  scs snap <file.json>                Inspect a persisted snapshot
-  scs diff <left.json> <right.json>   Structural diff between two snapshots
+  fate list                            List built-in demo machines
+  fate view <machine> [state-path]     Render ASCII state diagram + transition sidebar
+  fate describe <machine>              Print JSON descriptor (pretty)
+  fate snap <file.json>                Inspect a persisted snapshot
+  fate diff <left.json> <right.json>   Structural diff between two snapshots
 `
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:
-		fmt.Fprintf(os.Stderr, "scs: unknown command %q\n\n%s", cmd, usage)
+		fmt.Fprintf(os.Stderr, "fate: unknown command %q\n\n%s", cmd, usage)
 		os.Exit(2)
 	}
 }
@@ -50,7 +50,7 @@ func runList() {
 		fmt.Printf("  %-18s  %s\n", e.name, e.summary)
 	}
 	fmt.Println()
-	fmt.Println("Hint: run `scs view <name>` to see one rendered.")
+	fmt.Println("Hint: run `fate view <name>` to see one rendered.")
 }
 
 func runView(args []string) {
@@ -161,7 +161,7 @@ func mustLookup(name string) registryEntry {
 }
 
 func die(msg string) {
-	fmt.Fprintln(os.Stderr, "scs: "+msg)
+	fmt.Fprintln(os.Stderr, "fate: "+msg)
 	os.Exit(1)
 }
 

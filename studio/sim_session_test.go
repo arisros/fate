@@ -59,12 +59,12 @@ func TestSim_CookieMintedAndPersisted(t *testing.T) {
 	u, _ := url.Parse(base)
 	var found bool
 	for _, ck := range c.Jar.Cookies(u) {
-		if ck.Name == "scs_sid" && ck.Value != "" {
+		if ck.Name == "fate_sid" && ck.Value != "" {
 			found = true
 		}
 	}
 	if !found {
-		t.Error("scs_sid cookie not set on /sim page load")
+		t.Error("fate_sid cookie not set on /sim page load")
 	}
 }
 

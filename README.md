@@ -115,9 +115,9 @@ invoked-actor machines, and the package
 - **`fate/studio`** — an embeddable, self-hosted chart viewer and live SSE
   simulator: renders and drives any fate machine in the browser. Mount it with
   `studio.NewServer(...).Register(...).Handler()`.
-- **`scs`** — a CLI to list, view, describe, snapshot, and diff machines.
-- **`scs-web`** — a ready-to-run studio server for the demo machines
-  (`go run ./cmd/scs-web`, or `docker build -t fate-scs-web . && docker run -p 8090:8090 fate-scs-web`).
+- **`fate`** — a CLI to list, view, describe, snapshot, and diff machines.
+- **`fate-studio`** — a ready-to-run studio server for the demo machines
+  (`go run ./cmd/fate-studio`, or `docker build -t fate-studio . && docker run -p 8090:8090 fate-studio`).
 
 ## Documentation
 
