@@ -112,15 +112,21 @@ invoked-actor machines, and the package
 
 ## Tooling
 
-- **`fate/studio`** — an embeddable, self-hosted chart viewer and live SSE
-  simulator: renders and drives any fate machine in the browser. Mount it with
-  `studio.NewServer(...).Register(...).Handler()`.
-- **`fate`** — a CLI to list, view, describe, snapshot, and diff machines.
-- **`fate-studio`** — a ready-to-run studio server for the demo machines
-  (`go run ./cmd/fate-studio`, or `docker build -t fate-studio . && docker run -p 8090:8090 fate-studio`).
+- **`fate`** — a small CLI to render (ASCII / Mermaid / graph), inspect, and diff
+  statecharts from JSON descriptors and snapshots. Install with
+  `go install github.com/arisros/fate/cmd/fate@latest`.
+- **[fate-studio](https://github.com/arisros/fate-studio)** — a separate project:
+  an embeddable, self-hosted chart viewer and live simulator that renders and
+  drives any fate machine in the browser. It lives in its own repository so the
+  engine stays dependency-free.
 
 ## Documentation
 
+- [Documentation index](./docs/README.md) — concepts and guides
+- [Concepts](./docs/concepts.md) · [Defining machines](./docs/guide/defining-machines.md) ·
+  [Persistence & determinism](./docs/guide/persistence-and-determinism.md) ·
+  [Effects & adapters](./docs/guide/effects-and-adapters.md) ·
+  [Temporal](./docs/guide/temporal.md)
 - [Architecture Decision Records](./docs/adr)
 - Per-symbol reference on [pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate)
 
