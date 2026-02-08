@@ -50,6 +50,16 @@ func NewWorkflowActorFromSnapshot[Ctx any, Evt any](
 	return &WorkflowActor[Ctx, Evt]{ctx: ctx, actor: a, opts: opts}, nil
 }
 
+// Start runs the actor's initial entry.
+func (w *WorkflowActor[Ctx, Evt]) Start() error {
+	return w.actor.Start(context.Background())
+}
+
+// Stop halts the hosted actor.
+func (w *WorkflowActor[Ctx, Evt]) Stop() {
+	w.actor.Stop()
+}
+
 // Send delivers an event to the hosted actor from workflow code.
 func (w *WorkflowActor[Ctx, Evt]) Send(evt Evt) error {
 	return w.actor.Send(context.Background(), evt)

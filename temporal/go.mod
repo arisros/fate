@@ -11,7 +11,7 @@ module github.com/arisros/fate/temporal
 go 1.24.0
 
 require (
-	github.com/arisros/fate v0.0.0
+	github.com/arisros/fate v0.4.0
 	github.com/stretchr/testify v1.10.0
 	go.temporal.io/sdk v1.44.1
 )
