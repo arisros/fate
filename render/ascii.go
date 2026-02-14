@@ -1,13 +1,16 @@
-package fate
+// Package render produces visual representations of a [fate.MachineDescriptor].
+package render
 
 import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/arisros/fate"
 )
 
-// RenderOptions controls cosmetic aspects of ASCII rendering.
-type RenderOptions struct {
+// Options controls cosmetic aspects of ASCII rendering.
+type Options struct {
 	Highlight map[string]rune
 
 	IndentStep int
@@ -16,27 +19,27 @@ type RenderOptions struct {
 	CompoundClose string
 }
 
-func (o *RenderOptions) indentStep() int {
+func (o *Options) indentStep() int {
 	if o.IndentStep <= 0 {
 		return 2
 	}
 	return o.IndentStep
 }
-func (o *RenderOptions) open() string {
+func (o *Options) open() string {
 	if o.CompoundOpen == "" {
 		return "┌─"
 	}
 	return o.CompoundOpen
 }
-func (o *RenderOptions) close() string {
+func (o *Options) close() string {
 	if o.CompoundClose == "" {
 		return "└─"
 	}
 	return o.CompoundClose
 }
 
-// RenderASCII produces a multi-line ASCII rendering of the descriptor.
-func RenderASCII(d MachineDescriptor, opts RenderOptions) string {
+// ASCII produces a multi-line ASCII rendering of the descriptor suitable for printing to a terminal, embedding in a fixed-width log, or feeding to a machine_view buffer.
+func ASCII(d fate.MachineDescriptor, opts Options) string {
 	var sb strings.Builder
 	header := fmt.Sprintf("Machine: %s (initial: %s)", d.ID, d.Initial)
 	sb.WriteString(header)
@@ -48,8 +51,8 @@ func RenderASCII(d MachineDescriptor, opts RenderOptions) string {
 	return sb.String()
 }
 
-// RenderTransitions emits a sidebar block showing every transition out of the state at the given dot-path.
-func RenderTransitions(d MachineDescriptor, path string) string {
+// Transitions emits a sidebar block showing every transition out of the state at the given dot-path.
+func Transitions(d fate.MachineDescriptor, path string) string {
 	node, ok := lookupDescriptorPath(d, path)
 	if !ok {
 		return ""
@@ -80,7 +83,7 @@ func RenderTransitions(d MachineDescriptor, path string) string {
 	return sb.String()
 }
 
-func renderNode(sb *strings.Builder, name string, node StateNodeDescriptor, depth int, ancestorPath string, parentInitial string, opts *RenderOptions) {
+func renderNode(sb *strings.Builder, name string, node fate.StateNodeDescriptor, depth int, ancestorPath string, parentInitial string, opts *Options) {
 	indent := strings.Repeat(" ", depth*opts.indentStep())
 	dotPath := joinDotPath(ancestorPath, name)
 	marker := highlightMarker(opts.Highlight, dotPath)
@@ -126,7 +129,7 @@ func renderNode(sb *strings.Builder, name string, node StateNodeDescriptor, dept
 	sb.WriteByte('\n')
 }
 
-func nodeTagList(node StateNodeDescriptor, isInitial bool) []string {
+func nodeTagList(node fate.StateNodeDescriptor, isInitial bool) []string {
 	var tags []string
 	if isInitial {
 		tags = append(tags, "(initial)")
@@ -149,22 +152,6 @@ func nodeTagList(node StateNodeDescriptor, isInitial bool) []string {
 	return tags
 }
 
-func sortedStateKeys(m map[string]StateNodeDescriptor) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
-func joinDotPath(prefix, name string) string {
-	if prefix == "" {
-		return name
-	}
-	return prefix + "." + name
-}
-
 func highlightMarker(highlight map[string]rune, dotPath string) string {
 	if len(highlight) == 0 {
 		return ""
@@ -180,19 +167,19 @@ func highlightMarker(highlight map[string]rune, dotPath string) string {
 	return ""
 }
 
-func lookupDescriptorPath(d MachineDescriptor, path string) (StateNodeDescriptor, bool) {
+func lookupDescriptorPath(d fate.MachineDescriptor, path string) (fate.StateNodeDescriptor, bool) {
 	if path == "" {
-		return StateNodeDescriptor{}, false
+		return fate.StateNodeDescriptor{}, false
 	}
 	segments := strings.Split(path, ".")
 	cursor, ok := d.States[segments[0]]
 	if !ok {
-		return StateNodeDescriptor{}, false
+		return fate.StateNodeDescriptor{}, false
 	}
 	for _, seg := range segments[1:] {
 		next, ok := cursor.States[seg]
 		if !ok {
-			return StateNodeDescriptor{}, false
+			return fate.StateNodeDescriptor{}, false
 		}
 		cursor = next
 	}
@@ -206,7 +193,7 @@ func guardSuffix(name string) string {
 	return " [guard:" + name + "]"
 }
 
-func internalSuffix(t TransitionDescriptor) string {
+func internalSuffix(t fate.TransitionDescriptor) string {
 	if !t.Internal {
 		return ""
 	}
@@ -229,7 +216,7 @@ func actionsSuffix(actions []string) string {
 	return fmt.Sprintf(" [actions: %s]", strings.Join(named, ", "))
 }
 
-func targetOrInternal(t TransitionDescriptor) string {
+func targetOrInternal(t fate.TransitionDescriptor) string {
 	if t.Target == "" {
 		return "(no target — actions only)"
 	}

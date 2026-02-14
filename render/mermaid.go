@@ -1,8 +1,10 @@
-package fate
+package render
 
 import (
 	"sort"
 	"strings"
+
+	"github.com/arisros/fate"
 )
 
 // MermaidOptions controls the emitted diagram.
@@ -19,8 +21,8 @@ func (o *MermaidOptions) direction() string {
 	return o.Direction
 }
 
-// RenderMermaid produces a Mermaid `stateDiagram-v2` document for the machine.
-func RenderMermaid(d MachineDescriptor, opts MermaidOptions) string {
+// Mermaid produces a Mermaid `stateDiagram-v2` document for the machine.
+func Mermaid(d fate.MachineDescriptor, opts MermaidOptions) string {
 	var sb strings.Builder
 	sb.WriteString("stateDiagram-v2\n")
 	sb.WriteString("    direction " + opts.direction() + "\n")
@@ -49,7 +51,7 @@ func RenderMermaid(d MachineDescriptor, opts MermaidOptions) string {
 	return sb.String()
 }
 
-func emitMermaidNode(sb *strings.Builder, name string, node StateNodeDescriptor, path string, depth int) {
+func emitMermaidNode(sb *strings.Builder, name string, node fate.StateNodeDescriptor, path string, depth int) {
 	indent := strings.Repeat("    ", depth)
 	id := nodeID(path)
 	label := mermaidLabel(name)
@@ -81,7 +83,7 @@ func emitMermaidNode(sb *strings.Builder, name string, node StateNodeDescriptor,
 	}
 }
 
-func collectMermaidEdges(out *[]string, name string, node StateNodeDescriptor, path string, idx descriptorIndex) {
+func collectMermaidEdges(out *[]string, name string, node fate.StateNodeDescriptor, path string, idx descriptorIndex) {
 	srcID := nodeID(path)
 
 	events := make([]string, 0, len(node.On))
@@ -103,7 +105,7 @@ func collectMermaidEdges(out *[]string, name string, node StateNodeDescriptor, p
 	}
 }
 
-func mermaidEdge(srcID, srcPath, event string, t TransitionDescriptor, idx descriptorIndex) string {
+func mermaidEdge(srcID, srcPath, event string, t fate.TransitionDescriptor, idx descriptorIndex) string {
 	tgtPath := resolveDescriptorTarget(srcPath, t.Target, idx)
 	tgtID := nodeID(tgtPath)
 
@@ -128,7 +130,7 @@ func mermaidEdge(srcID, srcPath, event string, t TransitionDescriptor, idx descr
 	return srcID + " --> " + tgtID + " : " + mermaidEscapeLabel(label)
 }
 
-func emitMermaidClasses(sb *strings.Builder, d MachineDescriptor, idx descriptorIndex, highlight map[string]rune) {
+func emitMermaidClasses(sb *strings.Builder, d fate.MachineDescriptor, idx descriptorIndex, highlight map[string]rune) {
 	var finals, histories []string
 	for path, node := range idx {
 		switch node.Type {
@@ -169,54 +171,6 @@ func emitMermaidClasses(sb *strings.Builder, d MachineDescriptor, idx descriptor
 			sb.WriteString("    class " + strings.Join(ids, ",") + " active\n")
 		}
 	}
-}
-
-type descriptorIndex map[string]StateNodeDescriptor
-
-func indexDescriptor(d MachineDescriptor) descriptorIndex {
-	idx := descriptorIndex{}
-	var walk func(prefix string, states map[string]StateNodeDescriptor)
-	walk = func(prefix string, states map[string]StateNodeDescriptor) {
-		for name, node := range states {
-			path := joinDotPath(prefix, name)
-			idx[path] = node
-			if len(node.States) > 0 {
-				walk(path, node.States)
-			}
-		}
-	}
-	walk("", d.States)
-	return idx
-}
-
-func resolveDescriptorTarget(srcPath, target string, idx descriptorIndex) string {
-	if target == "" {
-		return srcPath
-	}
-	if cand := joinDotPath(srcPath, target); pathExists(cand, idx) {
-		return cand
-	}
-	parts := strings.Split(srcPath, ".")
-	for i := len(parts) - 1; i >= 1; i-- {
-		ancestor := strings.Join(parts[:i], ".")
-		if cand := joinDotPath(ancestor, target); pathExists(cand, idx) {
-			return cand
-		}
-	}
-	if pathExists(target, idx) {
-		return target
-	}
-	return target
-}
-
-func pathExists(path string, idx descriptorIndex) bool {
-	_, ok := idx[path]
-	return ok
-}
-
-func nodeID(path string) string {
-	r := strings.NewReplacer(".", "_", "-", "_", " ", "_", "|", "_")
-	return "s_" + r.Replace(path)
 }
 
 func mermaidLabel(name string) string {
