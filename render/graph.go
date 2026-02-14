@@ -1,6 +1,10 @@
-package fate
+package render
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/arisros/fate"
+)
 
 // GraphNode is one state in the graph.
 type GraphNode struct {
@@ -34,16 +38,16 @@ type Graph struct {
 	Edges   []GraphEdge `json:"edges"`
 }
 
-// RenderGraphJSON converts a MachineDescriptor into a resolved Graph.
-func RenderGraphJSON(d MachineDescriptor) Graph {
+// GraphJSON converts a MachineDescriptor into a resolved Graph.
+func GraphJSON(d fate.MachineDescriptor) Graph {
 	idx := indexDescriptor(d)
 	g := Graph{ID: d.ID}
 	if d.Initial != "" {
 		g.Initial = nodeID(d.Initial)
 	}
 
-	var walk func(name string, node StateNodeDescriptor, path, parentID, parentInitial string)
-	walk = func(name string, node StateNodeDescriptor, path, parentID, parentInitial string) {
+	var walk func(name string, node fate.StateNodeDescriptor, path, parentID, parentInitial string)
+	walk = func(name string, node fate.StateNodeDescriptor, path, parentID, parentInitial string) {
 		n := GraphNode{
 			ID:      nodeID(path),
 			Label:   name,
@@ -83,7 +87,7 @@ func RenderGraphJSON(d MachineDescriptor) Graph {
 	return g
 }
 
-func edgeFor(srcPath, event string, t TransitionDescriptor, idx descriptorIndex, ei *int) GraphEdge {
+func edgeFor(srcPath, event string, t fate.TransitionDescriptor, idx descriptorIndex, ei *int) GraphEdge {
 	tgtPath := resolveDescriptorTarget(srcPath, t.Target, idx)
 	*ei++
 	return GraphEdge{

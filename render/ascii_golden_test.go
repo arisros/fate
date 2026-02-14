@@ -1,4 +1,4 @@
-package fate_test
+package render_test
 
 import (
 	"flag"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	sc "github.com/arisros/fate"
+	"github.com/arisros/fate/render"
 )
 
 var updateGolden = flag.Bool("update", false, "regenerate golden files under testdata/ascii_graph/")
@@ -44,12 +45,12 @@ func goldenCases() []goldenCase {
 	}
 }
 
-func TestRenderASCII_Golden(t *testing.T) {
+func TestASCII_Golden(t *testing.T) {
 	for _, c := range goldenCases() {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			d := c.build(t)
-			got := sc.RenderASCII(d, sc.RenderOptions{Highlight: c.highlight})
+			got := render.ASCII(d, render.Options{Highlight: c.highlight})
 			path := filepath.Join("testdata", "ascii_graph", c.goldenFile)
 			if *updateGolden {
 				if err := os.WriteFile(path, []byte(got), 0644); err != nil {

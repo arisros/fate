@@ -1,55 +1,56 @@
-package fate
+package diff
 
 import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
+
+	"github.com/arisros/fate"
 )
 
-// DiffKind enumerates the categories of difference DiffSnapshots may surface.
-type DiffKind string
+// Kind enumerates the categories of difference [Snapshots] may surface.
+type Kind string
 
 const (
-	// DiffKindStateValue: the active state configuration changed.
-	DiffKindStateValue DiffKind = "state_value"
+	// KindStateValue: the active state configuration changed.
+	KindStateValue Kind = "state_value"
 
-	// DiffKindContextField: a field in the marshaled context JSON changed.
-	DiffKindContextField DiffKind = "context_field"
+	// KindContextField: a field in the marshaled context JSON changed.
+	KindContextField Kind = "context_field"
 
-	// DiffKindStatus: actor status differs (running / done / stopped).
-	DiffKindStatus DiffKind = "status"
+	// KindStatus: actor status differs (running / done / stopped).
+	KindStatus Kind = "status"
 
-	// DiffKindContextShape: the contexts have structurally different JSON shapes (e.g. different field sets at some nesting level).
-	DiffKindContextShape DiffKind = "context_shape"
+	// KindContextShape: the contexts have structurally different JSON shapes (e.g. different field sets at some nesting level).
+	KindContextShape Kind = "context_shape"
 )
 
-// DiffEntry is a single line of difference between two snapshots.
-type DiffEntry struct {
-	Kind  DiffKind `json:"kind"`
-	Field string   `json:"field,omitempty"`
-	From  string   `json:"from"`
-	To    string   `json:"to"`
+// Entry is a single line of difference between two snapshots.
+type Entry struct {
+	Kind  Kind   `json:"kind"`
+	Field string `json:"field,omitempty"`
+	From  string `json:"from"`
+	To    string `json:"to"`
 }
 
 // String returns a one-line human-readable form.
-func (d DiffEntry) String() string {
+func (d Entry) String() string {
 	if d.Field != "" {
 		return fmt.Sprintf("%s %s: %s → %s", d.Kind, d.Field, d.From, d.To)
 	}
 	return fmt.Sprintf("%s: %s → %s", d.Kind, d.From, d.To)
 }
 
-// SnapshotDiff is the result of comparing two snapshots.
-type SnapshotDiff struct {
-	Entries []DiffEntry `json:"entries"`
+// Result is the outcome of comparing two snapshots.
+type Result struct {
+	Entries []Entry `json:"entries"`
 }
 
-// Empty reports whether the snapshots are equivalent — no entries means the renderer should show "no differences" rather than an empty list.
-func (d SnapshotDiff) Empty() bool { return len(d.Entries) == 0 }
+// Empty reports whether the snapshots are equivalent.
+func (d Result) Empty() bool { return len(d.Entries) == 0 }
 
 // Strings returns each entry's String form, sorted for stable output.
-func (d SnapshotDiff) Strings() []string {
+func (d Result) Strings() []string {
 	out := make([]string, 0, len(d.Entries))
 	for _, e := range d.Entries {
 		out = append(out, e.String())
@@ -58,21 +59,21 @@ func (d SnapshotDiff) Strings() []string {
 	return out
 }
 
-// DiffSnapshots computes the structural diff between two Snapshots of the same context type.
-func DiffSnapshots[Ctx any](left, right Snapshot[Ctx]) SnapshotDiff {
-	var out SnapshotDiff
+// Snapshots computes the structural diff between two Snapshots of the same context type.
+func Snapshots[Ctx any](left, right fate.Snapshot[Ctx]) Result {
+	var out Result
 
 	if leftPath, rightPath := left.Value.Path(), right.Value.Path(); leftPath != rightPath {
-		out.Entries = append(out.Entries, DiffEntry{
-			Kind: DiffKindStateValue,
+		out.Entries = append(out.Entries, Entry{
+			Kind: KindStateValue,
 			From: leftPath,
 			To:   rightPath,
 		})
 	}
 
 	if string(left.Status) != string(right.Status) {
-		out.Entries = append(out.Entries, DiffEntry{
-			Kind: DiffKindStatus,
+		out.Entries = append(out.Entries, Entry{
+			Kind: KindStatus,
 			From: string(left.Status),
 			To:   string(right.Status),
 		})
@@ -81,8 +82,8 @@ func DiffSnapshots[Ctx any](left, right Snapshot[Ctx]) SnapshotDiff {
 	leftBytes, lerr := json.Marshal(left.Context)
 	rightBytes, rerr := json.Marshal(right.Context)
 	if lerr != nil || rerr != nil {
-		out.Entries = append(out.Entries, DiffEntry{
-			Kind: DiffKindContextShape,
+		out.Entries = append(out.Entries, Entry{
+			Kind: KindContextShape,
 			From: errString(lerr),
 			To:   errString(rerr),
 		})
@@ -99,13 +100,13 @@ func DiffSnapshots[Ctx any](left, right Snapshot[Ctx]) SnapshotDiff {
 	return out
 }
 
-func walkContextDiff(field string, left, right any, out *SnapshotDiff) {
+func walkContextDiff(field string, left, right any, out *Result) {
 	switch l := left.(type) {
 	case map[string]any:
 		r, ok := right.(map[string]any)
 		if !ok {
-			out.Entries = append(out.Entries, DiffEntry{
-				Kind:  DiffKindContextShape,
+			out.Entries = append(out.Entries, Entry{
+				Kind:  KindContextShape,
 				Field: field,
 				From:  encodeJSON(left),
 				To:    encodeJSON(right),
@@ -119,8 +120,8 @@ func walkContextDiff(field string, left, right any, out *SnapshotDiff) {
 			rv, rok := r[k]
 			child := joinField(field, k)
 			if !lok || !rok {
-				out.Entries = append(out.Entries, DiffEntry{
-					Kind:  DiffKindContextField,
+				out.Entries = append(out.Entries, Entry{
+					Kind:  KindContextField,
 					Field: child,
 					From:  presence(lok, lv),
 					To:    presence(rok, rv),
@@ -132,8 +133,8 @@ func walkContextDiff(field string, left, right any, out *SnapshotDiff) {
 	case []any:
 		r, ok := right.([]any)
 		if !ok {
-			out.Entries = append(out.Entries, DiffEntry{
-				Kind:  DiffKindContextShape,
+			out.Entries = append(out.Entries, Entry{
+				Kind:  KindContextShape,
 				Field: field,
 				From:  encodeJSON(left),
 				To:    encodeJSON(right),
@@ -141,8 +142,8 @@ func walkContextDiff(field string, left, right any, out *SnapshotDiff) {
 			return
 		}
 		if len(l) != len(r) {
-			out.Entries = append(out.Entries, DiffEntry{
-				Kind:  DiffKindContextField,
+			out.Entries = append(out.Entries, Entry{
+				Kind:  KindContextField,
 				Field: field + ".length",
 				From:  fmt.Sprintf("%d", len(l)),
 				To:    fmt.Sprintf("%d", len(r)),
@@ -159,8 +160,8 @@ func walkContextDiff(field string, left, right any, out *SnapshotDiff) {
 		le := encodeJSON(left)
 		re := encodeJSON(right)
 		if le != re {
-			out.Entries = append(out.Entries, DiffEntry{
-				Kind:  DiffKindContextField,
+			out.Entries = append(out.Entries, Entry{
+				Kind:  KindContextField,
 				Field: field,
 				From:  le,
 				To:    re,
@@ -220,5 +221,3 @@ func joinField(prefix, segment string) string {
 	}
 	return prefix + "." + segment
 }
-
-var _ = strings.Builder{}

@@ -1,10 +1,11 @@
-package fate_test
+package render_test
 
 import (
 	"strings"
 	"testing"
 
 	sc "github.com/arisros/fate"
+	"github.com/arisros/fate/render"
 )
 
 type gCtx struct{}
@@ -50,9 +51,9 @@ func buildGraphFixture(t *testing.T) sc.MachineDescriptor {
 	return m.Describe()
 }
 
-func TestRenderASCII_IncludesHeaderAndInitialMarker(t *testing.T) {
+func TestASCII_IncludesHeaderAndInitialMarker(t *testing.T) {
 	d := buildGraphFixture(t)
-	out := sc.RenderASCII(d, sc.RenderOptions{})
+	out := render.ASCII(d, render.Options{})
 	if !strings.Contains(out, "Machine: graph-fixture") {
 		t.Errorf("missing header; got:\n%s", out)
 	}
@@ -64,9 +65,9 @@ func TestRenderASCII_IncludesHeaderAndInitialMarker(t *testing.T) {
 	}
 }
 
-func TestRenderASCII_BracketsCompoundAndShowsFinal(t *testing.T) {
+func TestASCII_BracketsCompoundAndShowsFinal(t *testing.T) {
 	d := buildGraphFixture(t)
-	out := sc.RenderASCII(d, sc.RenderOptions{})
+	out := render.ASCII(d, render.Options{})
 	if !strings.Contains(out, "┌─ active") {
 		t.Errorf("compound open missing; got:\n%s", out)
 	}
@@ -78,9 +79,9 @@ func TestRenderASCII_BracketsCompoundAndShowsFinal(t *testing.T) {
 	}
 }
 
-func TestRenderASCII_ParallelRegionsHaveDividers(t *testing.T) {
+func TestASCII_ParallelRegionsHaveDividers(t *testing.T) {
 	d := buildGraphFixture(t)
-	out := sc.RenderASCII(d, sc.RenderOptions{})
+	out := render.ASCII(d, render.Options{})
 	if !strings.Contains(out, "[parallel]") {
 		t.Errorf("parallel tag missing; got:\n%s", out)
 	}
@@ -89,9 +90,9 @@ func TestRenderASCII_ParallelRegionsHaveDividers(t *testing.T) {
 	}
 }
 
-func TestRenderASCII_HighlightAppearsOnMatchAndAncestor(t *testing.T) {
+func TestASCII_HighlightAppearsOnMatchAndAncestor(t *testing.T) {
 	d := buildGraphFixture(t)
-	out := sc.RenderASCII(d, sc.RenderOptions{
+	out := render.ASCII(d, render.Options{
 		Highlight: map[string]rune{"active.running": '▶'},
 	})
 	if !strings.Contains(out, "▶ running") {
@@ -107,9 +108,9 @@ func TestRenderASCII_HighlightAppearsOnMatchAndAncestor(t *testing.T) {
 	}
 }
 
-func TestRenderTransitions_ListsEventsWithInternalTag(t *testing.T) {
+func TestTransitions_ListsEventsWithInternalTag(t *testing.T) {
 	d := buildGraphFixture(t)
-	got := sc.RenderTransitions(d, "active.running")
+	got := render.Transitions(d, "active.running")
 	if !strings.Contains(got, "TICK") {
 		t.Errorf("TICK event missing; got:\n%s", got)
 	}
@@ -121,26 +122,26 @@ func TestRenderTransitions_ListsEventsWithInternalTag(t *testing.T) {
 	}
 }
 
-func TestRenderTransitions_NoneStateShowsNone(t *testing.T) {
+func TestTransitions_NoneStateShowsNone(t *testing.T) {
 	d := buildGraphFixture(t)
-	got := sc.RenderTransitions(d, "stopped")
+	got := render.Transitions(d, "stopped")
 	if !strings.Contains(got, "(none)") {
 		t.Errorf("expected '(none)' for stopped final; got:\n%s", got)
 	}
 }
 
-func TestRenderTransitions_UnknownPathReturnsEmpty(t *testing.T) {
+func TestTransitions_UnknownPathReturnsEmpty(t *testing.T) {
 	d := buildGraphFixture(t)
-	got := sc.RenderTransitions(d, "no.such.path")
+	got := render.Transitions(d, "no.such.path")
 	if got != "" {
 		t.Errorf("unknown path: expected empty, got %q", got)
 	}
 }
 
-func TestRenderASCII_DeterministicOutputAcrossRuns(t *testing.T) {
+func TestASCII_DeterministicOutputAcrossRuns(t *testing.T) {
 	d := buildGraphFixture(t)
-	out1 := sc.RenderASCII(d, sc.RenderOptions{})
-	out2 := sc.RenderASCII(d, sc.RenderOptions{})
+	out1 := render.ASCII(d, render.Options{})
+	out2 := render.ASCII(d, render.Options{})
 	if out1 != out2 {
 		t.Errorf("non-deterministic ASCII output across runs:\nrun1:\n%s\nrun2:\n%s", out1, out2)
 	}

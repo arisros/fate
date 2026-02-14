@@ -1,11 +1,19 @@
-package fate_test
+package render_test
 
 import (
 	"strings"
 	"testing"
 
 	sc "github.com/arisros/fate"
+	"github.com/arisros/fate/render"
 )
+
+type mCtx struct{}
+type mEvt interface{ isMEvt() }
+type mNext struct{}
+
+func (mNext) isMEvt()           {}
+func (mNext) EventName() string { return "NEXT" }
 
 func mermaidDescriptor(t *testing.T, build func() (*sc.Machine[mCtx, mEvt], error)) sc.MachineDescriptor {
 	t.Helper()
@@ -15,13 +23,6 @@ func mermaidDescriptor(t *testing.T, build func() (*sc.Machine[mCtx, mEvt], erro
 	}
 	return m.Describe()
 }
-
-type mCtx struct{}
-type mEvt interface{ isMEvt() }
-type mNext struct{}
-
-func (mNext) isMEvt()           {}
-func (mNext) EventName() string { return "NEXT" }
 
 func buildTraffic() (*sc.Machine[mCtx, mEvt], error) {
 	return sc.CreateMachine(sc.MachineConfig[mCtx, mEvt]{
@@ -35,7 +36,7 @@ func buildTraffic() (*sc.Machine[mCtx, mEvt], error) {
 	})
 }
 
-func buildParallel() (*sc.Machine[mCtx, mEvt], error) {
+func buildParallelMermaid() (*sc.Machine[mCtx, mEvt], error) {
 	region := func(initial string) sc.StateNodeConfig[mCtx, mEvt] {
 		return sc.StateNodeConfig[mCtx, mEvt]{
 			Initial: initial,
@@ -60,9 +61,9 @@ func buildParallel() (*sc.Machine[mCtx, mEvt], error) {
 	})
 }
 
-func TestRenderMermaid_Header(t *testing.T) {
+func TestMermaid_Header(t *testing.T) {
 	d := mermaidDescriptor(t, buildTraffic)
-	out := sc.RenderMermaid(d, sc.MermaidOptions{})
+	out := render.Mermaid(d, render.MermaidOptions{})
 	if !strings.HasPrefix(out, "stateDiagram-v2") {
 		t.Errorf("must start with stateDiagram-v2; got:\n%s", out)
 	}
@@ -74,9 +75,9 @@ func TestRenderMermaid_Header(t *testing.T) {
 	}
 }
 
-func TestRenderMermaid_AtomicTransitions(t *testing.T) {
+func TestMermaid_AtomicTransitions(t *testing.T) {
 	d := mermaidDescriptor(t, buildTraffic)
-	out := sc.RenderMermaid(d, sc.MermaidOptions{})
+	out := render.Mermaid(d, render.MermaidOptions{})
 	for _, want := range []string{
 		`state "red" as s_red`,
 		`state "green" as s_green`,
@@ -90,9 +91,9 @@ func TestRenderMermaid_AtomicTransitions(t *testing.T) {
 	}
 }
 
-func TestRenderMermaid_ParallelRegionsAndCollisionFreeIDs(t *testing.T) {
-	d := mermaidDescriptor(t, buildParallel)
-	out := sc.RenderMermaid(d, sc.MermaidOptions{})
+func TestMermaid_ParallelRegionsAndCollisionFreeIDs(t *testing.T) {
+	d := mermaidDescriptor(t, buildParallelMermaid)
+	out := render.Mermaid(d, render.MermaidOptions{})
 	if !strings.Contains(out, "--\n") {
 		t.Errorf("missing parallel region divider; got:\n%s", out)
 	}
@@ -107,9 +108,9 @@ func TestRenderMermaid_ParallelRegionsAndCollisionFreeIDs(t *testing.T) {
 	}
 }
 
-func TestRenderMermaid_ActiveHighlight(t *testing.T) {
-	d := mermaidDescriptor(t, buildParallel)
-	out := sc.RenderMermaid(d, sc.MermaidOptions{
+func TestMermaid_ActiveHighlight(t *testing.T) {
+	d := mermaidDescriptor(t, buildParallelMermaid)
+	out := render.Mermaid(d, render.MermaidOptions{
 		Highlight: map[string]rune{"active.a.a1": '>'},
 	})
 	if !strings.Contains(out, "classDef active") {
@@ -122,7 +123,7 @@ func TestRenderMermaid_ActiveHighlight(t *testing.T) {
 	}
 }
 
-func TestRenderMermaid_GuardActionInternalLabels(t *testing.T) {
+func TestMermaid_GuardActionInternalLabels(t *testing.T) {
 	d := sc.MachineDescriptor{
 		ID:      "labels",
 		Initial: "a",
@@ -134,7 +135,7 @@ func TestRenderMermaid_GuardActionInternalLabels(t *testing.T) {
 			"b": {Type: "atomic"},
 		},
 	}
-	out := sc.RenderMermaid(d, sc.MermaidOptions{})
+	out := render.Mermaid(d, render.MermaidOptions{})
 	if !strings.Contains(out, "NEXT [isReady] / bump") {
 		t.Errorf("guard+action label missing; got:\n%s", out)
 	}
@@ -143,10 +144,10 @@ func TestRenderMermaid_GuardActionInternalLabels(t *testing.T) {
 	}
 }
 
-func TestRenderMermaid_Deterministic(t *testing.T) {
-	d := mermaidDescriptor(t, buildParallel)
-	a := sc.RenderMermaid(d, sc.MermaidOptions{})
-	b := sc.RenderMermaid(d, sc.MermaidOptions{})
+func TestMermaid_Deterministic(t *testing.T) {
+	d := mermaidDescriptor(t, buildParallelMermaid)
+	a := render.Mermaid(d, render.MermaidOptions{})
+	b := render.Mermaid(d, render.MermaidOptions{})
 	if a != b {
 		t.Errorf("non-deterministic output")
 	}
