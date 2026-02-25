@@ -1,51 +1,70 @@
-run:
-  timeout: 5m
+version: "2"
 
 linters:
   enable:
     - revive
-    - govet
-    - staticcheck
-    - errcheck
-    - ineffassign
-    - unconvert
     - misspell
-    - gofmt
-    - goimports
+    - unconvert
 
-linters-settings:
-  revive:
+  settings:
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+            - sayRepetitiveInsteadOfStutters
+          severity: error
+        - name: package-comments
+        - name: blank-imports
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: if-return
+        - name: increment-decrement
+        - name: var-declaration
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: exported
-        severity: error
-        arguments:
-          - checkPrivateReceivers
-          - sayRepetitiveInsteadOfStutters
-      - name: package-comments
-      - name: blank-imports
-      - name: context-as-argument
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: if-return
-      - name: increment-decrement
-      - name: var-declaration
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-  goimports:
-    local-prefixes: github.com/arisros/fate
+      - path: _test\.go
+        linters:
+          - revive
+          - unused
+      - path: ^examples/
+        linters:
+          - unused
+      - linters:
+          - unused
+        text: \.apply is unused
+    paths:
+      - third_party$
+      - builtin$
 
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - revive
-        - unused
-    - linters:
-        - unused
-      text: "\\.apply is unused"
   max-issues-per-linter: 0
   max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/arisros/fate
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
