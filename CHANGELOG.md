@@ -9,6 +9,10 @@ flagged explicitly under a **Breaking** heading.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-05
+
+First public release: the statechart engine and its Temporal adapter.
+
 ### Added
 - Project bootstrap: zero-dependency engine module (`github.com/arisros/fate`)
   and separate Temporal integration module (`github.com/arisros/fate/temporal`).
