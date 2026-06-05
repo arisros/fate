@@ -79,6 +79,43 @@ func (s *session) applyEvent(ctx context.Context, ev string) error {
 	return nil
 }
 
+// applyEffect captures the pre-effect snapshot (for undo/timeline), runs fn,
+// and rolls back the history push if fn fails. Used for timer/invocation
+// effects, which advance the machine like events but aren't user events.
+func (s *session) applyEffect(label string, fn func() error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	before, perr := s.live.Persist()
+	if perr == nil {
+		if len(s.history) >= maxHistory {
+			s.history = s.history[1:]
+			s.events = s.events[1:]
+		}
+		s.history = append(s.history, before)
+		s.events = append(s.events, label)
+	}
+	if err := fn(); err != nil {
+		if perr == nil {
+			s.history = s.history[:len(s.history)-1]
+			s.events = s.events[:len(s.events)-1]
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *session) fireTimer(id string) error {
+	return s.applyEffect("⏲ after", func() error { return s.live.FireTimer(id) })
+}
+
+func (s *session) resolveInvocation(id, output string) error {
+	return s.applyEffect("✓ "+id, func() error { return s.live.ResolveInvocation(id, output) })
+}
+
+func (s *session) rejectInvocation(id, errMsg string) error {
+	return s.applyEffect("✗ "+id, func() error { return s.live.RejectInvocation(id, errMsg) })
+}
+
 // undo pops the last event and restores the prior snapshot. Returns false if
 // there is nothing to undo.
 func (s *session) undo() (bool, error) {
@@ -256,6 +293,10 @@ func (s *Server) handleSimRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleSimStream(w, r, name)
 	case "send":
 		s.handleSimSend(w, r, name)
+	case "timer":
+		s.handleSimTimer(w, r, name)
+	case "invoke":
+		s.handleSimInvoke(w, r, name)
 	case "reset":
 		s.handleSimReset(w, r, name)
 	case "undo":
@@ -388,6 +429,59 @@ func (s *Server) handleSimSend(w http.ResponseWriter, r *http.Request, name stri
 		return
 	}
 	if err := sess.applyEvent(r.Context(), evtName); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	sess.broadcast()
+	writeSnapResponse(w, sess)
+}
+
+func (s *Server) handleSimTimer(w http.ResponseWriter, r *http.Request, name string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	sess, err := s.sessionFor(w, r, name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	_ = r.ParseForm()
+	id := r.FormValue("id")
+	if id == "" {
+		http.Error(w, "missing 'id' field", http.StatusBadRequest)
+		return
+	}
+	if err := sess.fireTimer(id); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	sess.broadcast()
+	writeSnapResponse(w, sess)
+}
+
+func (s *Server) handleSimInvoke(w http.ResponseWriter, r *http.Request, name string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	sess, err := s.sessionFor(w, r, name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	_ = r.ParseForm()
+	id := r.FormValue("id")
+	if id == "" {
+		http.Error(w, "missing 'id' field", http.StatusBadRequest)
+		return
+	}
+	if r.FormValue("action") == "reject" {
+		err = sess.rejectInvocation(id, r.FormValue("error"))
+	} else {
+		err = sess.resolveInvocation(id, r.FormValue("output"))
+	}
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

@@ -6,6 +6,8 @@
 package demos
 
 import (
+	"time"
+
 	"github.com/arisros/fate"
 	"github.com/arisros/fate/studio"
 )
@@ -52,6 +54,8 @@ func All() []Demo {
 		demoFor("pipeline", "Linear build pipeline: ingest → validate → transform → done.", Pipeline, Dispatch),
 		demoFor("editor", "Deep history: suspend editing, then resume the exact sub-state.", Editor, Dispatch),
 		demoFor("counter", "Live context: increment, decrement, and reset a counter.", Counter, CounterDispatch),
+		demoFor("timeout", "Delayed transition: a pending after-timer you fire from the studio.", Timeout, TimeoutDispatch),
+		demoFor("fetch", "Invocation: a pending request you resolve or reject from the studio.", Fetch, FetchDispatch),
 	}
 }
 
@@ -250,6 +254,102 @@ func Counter() *fate.Machine[CounterCtx, CounterEvt] {
 				"RESET": {{Actions: []fate.Action[CounterCtx, CounterEvt]{
 					fate.Assign(func(c CounterCtx, _ CounterEvt) CounterCtx { c.Count = 0; return c }),
 				}}},
+			}},
+		},
+	}))
+}
+
+// ----- timeout demo (delayed/after transition) -----
+
+// TimeoutCtx is the timeout demo's (empty) context.
+type TimeoutCtx struct{}
+
+// TimeoutEvt is the timeout demo's event interface.
+type TimeoutEvt interface{ isTimeoutEvt() }
+
+type tRestart struct{}
+
+func (tRestart) isTimeoutEvt()     {}
+func (tRestart) EventName() string { return "RESTART" }
+
+// TimeoutDispatch maps a UI event name to a timeout event.
+func TimeoutDispatch(name string) (TimeoutEvt, error) {
+	if name == "RESTART" {
+		return tRestart{}, nil
+	}
+	return nil, studio.ErrUnknownEvent{Name: name}
+}
+
+// Timeout has a state with a 30s after-timer: the studio shows the pending
+// timer, which you fire to advance to "expired" (or RESTART to re-arm it).
+func Timeout() *fate.Machine[TimeoutCtx, TimeoutEvt] {
+	return must(fate.CreateMachine(fate.MachineConfig[TimeoutCtx, TimeoutEvt]{
+		ID:      "timeout",
+		Initial: "waiting",
+		States: map[string]fate.StateNodeConfig[TimeoutCtx, TimeoutEvt]{
+			"waiting": {
+				On: map[string][]fate.TransitionConfig[TimeoutCtx, TimeoutEvt]{
+					"RESTART": {{Target: "waiting"}},
+				},
+				After: map[time.Duration][]fate.TransitionConfig[TimeoutCtx, TimeoutEvt]{
+					30 * time.Second: {{Target: "expired"}},
+				},
+			},
+			"expired": {Type: fate.NodeFinal},
+		},
+	}))
+}
+
+// ----- fetch demo (invocation) -----
+
+// FetchCtx is the fetch demo's (empty) context.
+type FetchCtx struct{}
+
+// FetchEvt is the fetch demo's event interface.
+type FetchEvt interface{ isFetchEvt() }
+
+type fOK struct{}
+type fErr struct{}
+type fRetry struct{}
+
+func (fOK) isFetchEvt()    {}
+func (fErr) isFetchEvt()   {}
+func (fRetry) isFetchEvt() {}
+
+func (fOK) EventName() string    { return "FETCHED" }
+func (fErr) EventName() string   { return "FAILED" }
+func (fRetry) EventName() string { return "RETRY" }
+
+// FetchDispatch maps a UI event name to a fetch event.
+func FetchDispatch(name string) (FetchEvt, error) {
+	if name == "RETRY" {
+		return fRetry{}, nil
+	}
+	return nil, studio.ErrUnknownEvent{Name: name}
+}
+
+// Fetch invokes a request while in "loading": the studio shows the pending
+// invocation, which you resolve (→ ready) or reject (→ error → RETRY).
+func Fetch() *fate.Machine[FetchCtx, FetchEvt] {
+	return must(fate.CreateMachine(fate.MachineConfig[FetchCtx, FetchEvt]{
+		ID:      "fetch",
+		Initial: "loading",
+		States: map[string]fate.StateNodeConfig[FetchCtx, FetchEvt]{
+			"loading": {
+				Invoke: []fate.Invocation[FetchCtx, FetchEvt]{{
+					ID:      "request",
+					Src:     "http.get",
+					OnDone:  func(any) FetchEvt { return fOK{} },
+					OnError: func(error) FetchEvt { return fErr{} },
+				}},
+				On: map[string][]fate.TransitionConfig[FetchCtx, FetchEvt]{
+					"FETCHED": {{Target: "ready"}},
+					"FAILED":  {{Target: "error"}},
+				},
+			},
+			"ready": {Type: fate.NodeFinal},
+			"error": {On: map[string][]fate.TransitionConfig[FetchCtx, FetchEvt]{
+				"RETRY": {{Target: "loading"}},
 			}},
 		},
 	}))
