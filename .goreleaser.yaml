@@ -1,4 +1,4 @@
-# GoReleaser configuration for the fate CLIs (fate, fate-studio).
+# GoReleaser configuration for the fate CLI.
 # Tagging vX.Y.Z triggers .github/workflows/release.yml, which runs goreleaser
 # to build cross-platform binaries, archives, and checksums, and publishes them
 # on the GitHub release.
@@ -19,18 +19,10 @@ builds:
     ldflags: ["-s -w"]
     goos: [linux, darwin]
     goarch: [amd64, arm64]
-  - id: fate-studio
-    main: ./cmd/fate-studio
-    binary: fate-studio
-    env: [CGO_ENABLED=0]
-    flags: [-trimpath]
-    ldflags: ["-s -w"]
-    goos: [linux, darwin]
-    goarch: [amd64, arm64]
 
 archives:
   - id: default
-    ids: [fate, fate-studio]
+    ids: [fate]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     format_overrides:
