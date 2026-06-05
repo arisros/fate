@@ -63,17 +63,23 @@ main.layout { flex: 1; display: flex; min-height: 0; }
 /* nodes — Stately-style state cards */
 .node { position: absolute; background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: var(--node-shadow); overflow: hidden; }
-.node .nhead { display: flex; align-items: center; gap: .35rem; padding: .3rem .55rem;
+/* Fixed header/row heights so the JS-computed node box (HEAD_H / ROW_H in
+   app.js) always matches the rendered DOM — no clipped action rows, no drifted
+   edge anchors. Text never wraps; long labels/targets ellipsize. */
+.node .nhead { display: flex; align-items: center; gap: .35rem; height: 28px; padding: 0 .55rem;
   font-weight: 600; font-size: .82rem; border-bottom: 1px solid var(--border); cursor: grab;
+  overflow: hidden; white-space: nowrap;
   background: linear-gradient(var(--surface), color-mix(in srgb, var(--surface) 92%, var(--border))); }
 .node .nhead .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg); flex: 0 0 auto; }
-.node .nhead .ic { font-size: .7rem; color: var(--muted); }
+.node .nhead .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+.node .nhead .ic { font-size: .7rem; color: var(--muted); flex: 0 0 auto; }
 .node .erow { display: flex; align-items: center; justify-content: space-between; gap: .5rem;
-  padding: .22rem .55rem; font-family: ui-monospace, monospace; font-size: .73rem; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+  height: 22px; padding: 0 .55rem; white-space: nowrap; font-family: ui-monospace, monospace; font-size: .73rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
 .node .erow:first-of-type { border-top: none; }
-.node .erow .ev { color: var(--accent); font-weight: 600; }
-.node .erow .gd { color: var(--muted); font-size: .68rem; }
-.node .erow .tg { color: var(--muted); }
+.node .erow .ev { color: var(--accent); font-weight: 600; flex: 0 0 auto; }
+.node .erow .gd { color: var(--muted); font-size: .68rem; overflow: hidden; text-overflow: ellipsis; }
+.node .erow .tg { color: var(--muted); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; text-align: right; }
 /* container (compound/parallel) nodes */
 .node.container { background: color-mix(in srgb, var(--surface) 60%, transparent);
   border-style: solid; }
