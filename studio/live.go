@@ -3,7 +3,7 @@
 // Any program can build its own studio server, register its machines (static
 // descriptors and/or live actors), and serve an interactive simulator.
 //
-// The scs-web binary registers a set of demo machines; an application
+// The fate-studio binary registers a set of demo machines; an application
 // registers its own production machines by supplying a LiveInstance backed by
 // the real machine.
 package studio

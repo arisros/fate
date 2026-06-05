@@ -76,7 +76,7 @@ mirrors the POC's ADR-003.)
   internal jargon leaks into the public surface.
 - The engine exposes introspection (`Machine.Describe`) and rendering
   (`RenderASCII` / `RenderMermaid` / `RenderGraphJSON`) so tooling (the studio,
-  `scs`) consumes the same public API external users do.
+  `fate`) consumes the same public API external users do.
 
 ### 6. Determinism is part of the contract
 
