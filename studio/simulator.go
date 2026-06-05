@@ -217,7 +217,7 @@ func (st *sessionStore) reap() {
 
 // ----- token / cookie -----
 
-const sessionCookie = "scs_sid"
+const sessionCookie = "fate_sid"
 
 // tokenFor reads the session token from the cookie, minting + setting one when
 // absent. Per-browser isolation: each token gets its own actor per machine.
@@ -304,7 +304,7 @@ func (s *Server) handleSimPage(w http.ResponseWriter, r *http.Request, name stri
 	}
 	evJSON, _ := json.Marshal(sess.availableEvents())
 	nameJSON, _ := json.Marshal(name)
-	globals := "window.SCS_MACHINE=" + string(nameJSON) + ";window.SCS_EVENTS=" + string(evJSON) + ";"
+	globals := "window.FATE_MACHINE=" + string(nameJSON) + ";window.FATE_EVENTS=" + string(evJSON) + ";"
 
 	w.Header().Set("content-type", "text/html; charset=utf-8")
 	renderShell(w, simShell,

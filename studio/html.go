@@ -28,13 +28,13 @@ const pageShell = `<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>%s</title>
 <link rel="stylesheet" href="/assets/app.css?v=__ASSETVER__">
-<script>(function(){var t=localStorage.getItem('scs-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
+<script>(function(){var t=localStorage.getItem('fate-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
 </head>
 <body>
 <div class="index-wrap">
 %s
 <hr>
-<footer><p><small>scs studio · go-statechart</small></p></footer>
+<footer><p><small>fate studio</small></p></footer>
 </div>
 </body>
 </html>
@@ -45,7 +45,7 @@ const pageShell = `<!doctype html>
 //	1 page title (machine name)
 //	2 machine name (header)
 //	3 machine name (static-view link)
-//	4 JS globals block: window.SCS_MACHINE + window.SCS_EVENTS
+//	4 JS globals block: window.FATE_MACHINE + window.FATE_EVENTS
 const simShell = `<!doctype html>
 <html lang="en">
 <head>
@@ -53,12 +53,12 @@ const simShell = `<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>%s</title>
 <link rel="stylesheet" href="/assets/app.css?v=__ASSETVER__">
-<script>(function(){var t=localStorage.getItem('scs-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
+<script>(function(){var t=localStorage.getItem('fate-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
 </head>
 <body class="sim">
 
 <header class="bar">
-  <span class="title">scs studio</span>
+  <span class="title">fate studio</span>
   <span class="machine">%s</span>
   <span id="status-badge" class="badge">connecting</span>
   <span class="spacer"></span>
