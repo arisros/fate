@@ -40,6 +40,55 @@ const pageShell = `<!doctype html>
 </html>
 `
 
+// welcomeShell is the landing page. Verbs in order: page title, machine-cards
+// HTML. The hero copy is statechart-generic so embedders can reuse it; the
+// links credit the fate project that powers the studio.
+const welcomeShell = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>%[1]s</title>
+<link rel="stylesheet" href="/assets/app.css?v=__ASSETVER__">
+<script>(function(){var t=localStorage.getItem('fate-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
+</head>
+<body>
+<div class="welcome">
+  <nav class="topbar">
+    <span class="brand">%[1]s</span>
+    <span class="spacer"></span>
+    <a href="https://github.com/arisros/fate">GitHub</a>
+    <a href="https://pkg.go.dev/github.com/arisros/fate">pkg.go.dev</a>
+  </nav>
+
+  <header class="hero">
+    <p class="eyebrow">Statechart studio</p>
+    <h1>Inspect and <span class="chip">simulate</span> your statecharts.</h1>
+    <p>A live, browser-based studio for <code>fate</code> machines — explore the chart,
+    drive events, fire delayed transitions and invocations, and watch the active
+    configuration update in real time over Server-Sent Events.</p>
+    <div class="cta-row">
+      <a class="btn-primary" href="#machines">Browse machines</a>
+      <a class="btn-ghost" href="https://github.com/arisros/fate">View on GitHub</a>
+    </div>
+    <div class="install"><span class="pmt">$</span> go get github.com/arisros/fate</div>
+  </header>
+
+  <h2 class="section-head" id="machines">Demo machines</h2>
+  <p class="section-sub">Open any machine to view its diagram, or simulate it live — send events, fire timers, resolve invocations.</p>
+  <div class="machines-grid">%[2]s</div>
+
+  <footer>
+    <span>fate · a statechart engine for Go</span>
+    <a href="https://github.com/arisros/fate">GitHub</a>
+    <a href="https://pkg.go.dev/github.com/arisros/fate">Docs</a>
+    <a href="https://github.com/arisros/fate/blob/main/LICENSE">MIT</a>
+  </footer>
+</div>
+</body>
+</html>
+`
+
 // simShell is the full simulator page. Verbs in order:
 //
 //	1 page title (machine name)
@@ -85,6 +134,10 @@ const simShell = `<!doctype html>
     <div>
       <h2>Events</h2>
       <div id="event-btns"></div>
+    </div>
+    <div id="effects-panel" hidden>
+      <h2>Pending effects</h2>
+      <div id="effects"></div>
     </div>
     <div>
       <h2>Context</h2>

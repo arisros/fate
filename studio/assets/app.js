@@ -396,7 +396,39 @@
     // array / scalar), NOT a string. Keep it as-is; renderContext pretty-prints
     // it. (Re-parsing a parsed object would coerce it to "[object Object]".)
     state.lastCtx = (snap.context === undefined || snap.context === null) ? {} : snap.context;
-    renderContext(); updateActive();
+    renderContext(); renderEffects(snap.timers || [], snap.invocations || []); updateActive();
+  }
+
+  // renderEffects shows pending delayed transitions (with a Fire button) and
+  // pending invocations (with Resolve / Reject controls) — the timer/invoke
+  // visualization. Hidden entirely when the machine has no pending effects.
+  function renderEffects(timers, invokes) {
+    var panel = document.getElementById("effects-panel");
+    var box = document.getElementById("effects");
+    box.innerHTML = "";
+    if (!timers.length && !invokes.length) { panel.hidden = true; return; }
+    panel.hidden = false;
+    timers.forEach(function (t) {
+      var row = document.createElement("div"); row.className = "effect timer";
+      row.innerHTML = '<span class="ekind">⏲ after</span><span class="edelay"></span>';
+      row.querySelector(".edelay").textContent = t.delay;
+      var fire = document.createElement("button"); fire.className = "evt-btn"; fire.textContent = "fire ▶";
+      fire.onclick = function () { fireTimer(t.id); };
+      row.appendChild(fire); box.appendChild(row);
+    });
+    invokes.forEach(function (iv) {
+      var row = document.createElement("div"); row.className = "effect invoke";
+      row.innerHTML = '<span class="ekind">⮞ invoke</span><span class="esrc"></span>';
+      row.querySelector(".esrc").textContent = iv.src;
+      var out = document.createElement("input"); out.className = "einput"; out.placeholder = 'output JSON (e.g. true, 42, {"k":1})';
+      var ok = document.createElement("button"); ok.className = "evt-btn ok"; ok.textContent = "resolve ✓";
+      ok.onclick = function () { resolveInvoke(iv.id, out.value); };
+      var no = document.createElement("button"); no.className = "evt-btn err"; no.textContent = "reject ✗";
+      no.onclick = function () { rejectInvoke(iv.id); };
+      var ctrls = document.createElement("div"); ctrls.className = "ectrls";
+      ctrls.appendChild(out); ctrls.appendChild(ok); ctrls.appendChild(no);
+      row.appendChild(ctrls); box.appendChild(row);
+    });
   }
   function setBadge(s) { var b = document.getElementById("status-badge"); b.textContent = s; b.className = "badge " + s; }
   function renderContext() {
@@ -430,6 +462,26 @@
       .then(function (snap) {
         state.sent.push(ev); updateHash(); addTimeline(ev, snap.path); renderEvents(snap.events);
       }).catch(function (err) { toast("send " + ev + ": " + err.message, "error"); });
+  }
+  function fireTimer(id) {
+    post(base + "/timer", "id=" + encodeURIComponent(id), "timer")
+      .then(function (snap) { addTimeline("⏲ after", snap.path); renderEvents(snap.events); })
+      .catch(function (err) { toast("fire timer: " + err.message, "error"); });
+  }
+  function resolveInvoke(id, output) {
+    post(base + "/invoke", "id=" + encodeURIComponent(id) + "&action=resolve&output=" + encodeURIComponent(output || ""), "resolve")
+      .then(function (snap) { addTimeline("✓ resolve", snap.path); renderEvents(snap.events); })
+      .catch(function (err) { toast("resolve: " + err.message, "error"); });
+  }
+  function rejectInvoke(id) {
+    post(base + "/invoke", "id=" + encodeURIComponent(id) + "&action=reject", "reject")
+      .then(function (snap) { addTimeline("✗ reject", snap.path); renderEvents(snap.events); })
+      .catch(function (err) { toast("reject: " + err.message, "error"); });
+  }
+  // post is a small helper: POST a urlencoded body, parse JSON, throw on !ok.
+  function post(url, body, label) {
+    return fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: body })
+      .then(function (r) { if (!r.ok) return r.text().then(function (t) { throw new Error(t || (label + " HTTP " + r.status)); }); return r.json(); });
   }
   function undo() {
     fetch(base + "/undo", { method: "POST" }).then(function (r) { if (!r.ok) return r.text().then(function (t) { throw new Error(t); }); return r.json(); })

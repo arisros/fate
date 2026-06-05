@@ -9,12 +9,27 @@ flagged explicitly under a **Breaking** heading.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-05
+
+Studio: timer/invoke visualization, a redesigned welcome page, a Sentry-inspired
+visual refresh, and the CLI rename.
+
 ### Breaking
 - Renamed the CLI binaries to match the product: `scs` → **`fate`**, `scs-web` →
   **`fate-studio`**. The server env var is now `FATE_STUDIO_ADDR` (was
   `SCS_WEB_ADDR`); the Docker image target is `fate-studio`.
 
 ### Added
+- **Timer / invocation visualization in the simulator.** The live snapshot now
+  carries pending delayed (`after`) timers and invocations; a "Pending effects"
+  panel lets you fire a timer or resolve/reject an invocation (with JSON output),
+  driving the machine exactly as an adapter would. New endpoints `/sim/{m}/timer`
+  and `/sim/{m}/invoke`; `LiveInstance` gains `PendingTimers`/`FireTimer`/
+  `PendingInvocations`/`ResolveInvocation`/`RejectInvocation`.
+- New `timeout` (after-timer) and `fetch` (invocation) demo machines.
+- A redesigned **welcome page** (hero, machine-card gallery) and a Sentry-inspired
+  visual refresh (violet-midnight ink, electric-lime keyword accent, button-cap
+  styling) — self-contained, no external fonts or build step.
 - A `counter` demo machine whose transitions mutate context (INC/DEC/RESET), so
   the studio's context panel shows `{"count": N}` updating live.
 

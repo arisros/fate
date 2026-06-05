@@ -154,6 +154,99 @@ func TestSimulatorSSEStream(t *testing.T) {
 	}
 }
 
+// effCtx/effEvt drive a machine with both an after-timer and an invocation, so
+// the /timer and /invoke endpoints can be exercised.
+type effCtx struct{}
+type effEvt interface{ isEff() }
+type effDone struct{}
+type effFail struct{}
+
+func (effDone) isEff()            {}
+func (effFail) isEff()            {}
+func (effDone) EventName() string { return "DONE" }
+func (effFail) EventName() string { return "FAIL" }
+
+func effServer(t *testing.T) *studio.Server {
+	t.Helper()
+	build := func() *fate.Machine[effCtx, effEvt] {
+		m, err := fate.CreateMachine(fate.MachineConfig[effCtx, effEvt]{
+			ID:      "eff",
+			Initial: "loading",
+			States: map[string]fate.StateNodeConfig[effCtx, effEvt]{
+				"loading": {
+					Invoke: []fate.Invocation[effCtx, effEvt]{{
+						ID: "req", Src: "svc",
+						OnDone:  func(any) effEvt { return effDone{} },
+						OnError: func(error) effEvt { return effFail{} },
+					}},
+					After: map[time.Duration][]fate.TransitionConfig[effCtx, effEvt]{
+						time.Minute: {{Target: "expired"}},
+					},
+					On: map[string][]fate.TransitionConfig[effCtx, effEvt]{
+						"DONE": {{Target: "ready"}},
+						"FAIL": {{Target: "failed"}},
+					},
+				},
+				"ready":   {Type: fate.NodeFinal},
+				"failed":  {Type: fate.NodeFinal},
+				"expired": {Type: fate.NodeFinal},
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	dispatch := func(string) (effEvt, error) { return nil, studio.ErrUnknownEvent{Name: "none"} }
+	srv := studio.NewServer("eff")
+	srv.Register(studio.Entry{
+		Name: "eff", Summary: "timer + invoke",
+		Build:     build().Describe,
+		BuildLive: func() studio.LiveInstance { return studio.NewLiveActor(build(), dispatch, build().Describe) },
+	})
+	return srv
+}
+
+func TestSimulatorTimerAndInvoke(t *testing.T) {
+	ts := httptest.NewServer(effServer(t).Handler())
+	defer ts.Close()
+	jar, _ := cookiejar.New(nil)
+	c := &http.Client{Jar: jar}
+
+	// Mint session; the SSE snapshot should advertise both pending effects.
+	body := doGet(t, c, ts.URL+"/sim/eff", 200)
+	_ = body
+	stream := doGet(t, c, ts.URL+"/sim/eff/timeline", 200)
+	_ = stream
+
+	// Resolving the invocation drives loading → ready.
+	doPost(t, c, ts.URL+"/sim/eff/invoke",
+		"id=loading%23invoke%23req&action=resolve&output=true", 200, `"ready"`)
+
+	// Fresh session: firing the timer drives loading → expired.
+	c2 := newClient(ts)
+	doPost(t, c2, ts.URL+"/sim/eff/timer",
+		"id=loading%23after%2360000000000%230", 200, `"expired"`)
+
+	// Fresh session: rejecting the invocation drives loading → failed.
+	c3 := newClient(ts)
+	doPost(t, c3, ts.URL+"/sim/eff/invoke",
+		"id=loading%23invoke%23req&action=reject&error=boom", 200, `"failed"`)
+
+	// Error paths.
+	c4 := newClient(ts)
+	doPost(t, c4, ts.URL+"/sim/eff/timer", "", 400, "")                                       // missing id
+	doPost(t, c4, ts.URL+"/sim/eff/invoke", "id=loading%23invoke%23req&output=nope", 400, "") // bad JSON output
+	doGet(t, c4, ts.URL+"/sim/eff/timer", 405)                                                // GET on POST-only
+}
+
+func newClient(ts *httptest.Server) *http.Client {
+	jar, _ := cookiejar.New(nil)
+	c := &http.Client{Jar: jar}
+	_, _ = c.Get(ts.URL + "/sim/eff") // mint session cookie
+	return c
+}
+
 // ----- helpers -----
 
 func doGet(t *testing.T, c *http.Client, url string, wantCode int) string {
