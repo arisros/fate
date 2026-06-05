@@ -38,13 +38,18 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
-      - name: assert no non-stdlib imports in the root module
+      - name: assert the root module has zero external dependencies
         run: |
-          leaks=$(go list -deps ./... | grep -v '^github.com/arisros/fate' | grep '\.' | grep -v '^golang.org/x/' || true)
-          if [ -n "$leaks" ]; then
-            echo "root module pulled in non-stdlib dependencies:"; echo "$leaks"; exit 1
+          # The module graph must contain only the module itself: no required
+          # modules at all. (net/http transitively lists the standard library's
+          # own vendored golang.org/x packages, which are not module deps — so
+          # we check at the module level, not the package level.)
+          mods=$(go list -m all)
+          count=$(printf '%s\n' "$mods" | wc -l)
+          if [ "$count" -ne 1 ]; then
+            echo "root module has external dependencies:"; printf '%s\n' "$mods"; exit 1
           fi
-          echo "ok: engine is standard-library only"
+          echo "ok: engine module graph is self-only ($mods)"
 
   coverage:
     name: coverage gate (>=85%)
@@ -55,12 +60,25 @@ jobs:
         with:
           go-version: '1.24'
       - name: test with coverage (library packages only)
-        run: go test -coverprofile=cover.out $(go list ./... | grep -v '/examples/')
+        run: go test -coverprofile=cover.out $(go list ./... | grep -vE '/examples/|/cmd/|/internal/demos')
       - name: enforce threshold
         run: |
           total=$(go tool cover -func=cover.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')
           echo "total coverage: ${total}%"
           awk "BEGIN { exit !(${total} >= 85) }" || { echo "coverage ${total}% is below the 85% gate"; exit 1; }
+
+  goreleaser-check:
+    name: validate GoReleaser config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: check
 
   lint:
     name: golangci-lint (${{ matrix.module }})
