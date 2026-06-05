@@ -20,27 +20,14 @@ jobs:
       - name: verify tests pass at tag
         run: go test ./...
 
-      - name: extract changelog section
-        id: changelog
-        run: |
-          tag="${GITHUB_REF_NAME}"
-          # Pull the notes for this version out of CHANGELOG.md if present,
-          # otherwise fall back to a generic message.
-          awk -v ver="${tag#v}" '
-            $0 ~ "^## \\[" ver "\\]" {grab=1; next}
-            grab && /^## \[/ {exit}
-            grab {print}
-          ' CHANGELOG.md > RELEASE_NOTES.md
-          if [ ! -s RELEASE_NOTES.md ]; then
-            echo "Release ${tag}." > RELEASE_NOTES.md
-          fi
-
-      - name: create release
-        uses: softprops/action-gh-release@v2
+      - name: run GoReleaser (binaries + archives + release notes)
+        uses: goreleaser/goreleaser-action@v6
         with:
-          body_path: RELEASE_NOTES.md
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-# NOTE: GoReleaser (binary builds for the scs / scs-web CLIs and a Docker image)
-# is added in Batch 2, when the studio and its commands land. The v0.x library
-# releases above are tag-and-notes only.
+# The scs-web Docker image is built from the repository Dockerfile
+# (`docker build -t fate-scs-web .`). Publishing it to a registry can be wired
+# into GoReleaser's `dockers:` section once a registry/credentials are chosen.
