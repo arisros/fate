@@ -13,7 +13,7 @@ import (
 	sc "github.com/arisros/fate"
 )
 
-// clientFor returns an http.Client with a cookie jar (so scs_sid persists
+// clientFor returns an http.Client with a cookie jar (so fate_sid persists
 // across requests, like a real browser) pointed at a fresh test server.
 func clientFor(t *testing.T) (*http.Client, string, func()) {
 	t.Helper()
@@ -56,18 +56,18 @@ func pathOf(t *testing.T, jsonBody string) string {
 func TestSim_CookieMintedAndPersisted(t *testing.T) {
 	c, base, closeFn := clientFor(t)
 	defer closeFn()
-	// GET the sim page → should Set-Cookie scs_sid.
+	// GET the sim page → should Set-Cookie fate_sid.
 	resp, _ := c.Get(base + "/sim/traffic-light")
 	resp.Body.Close()
 	u, _ := url.Parse(base)
 	var found bool
 	for _, ck := range c.Jar.Cookies(u) {
-		if ck.Name == "scs_sid" && ck.Value != "" {
+		if ck.Name == "fate_sid" && ck.Value != "" {
 			found = true
 		}
 	}
 	if !found {
-		t.Error("scs_sid cookie not set on /sim page load")
+		t.Error("fate_sid cookie not set on /sim page load")
 	}
 }
 

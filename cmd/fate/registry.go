@@ -14,7 +14,7 @@ type registryEntry struct {
 }
 
 // registry is the built-in set of demo machines, sourced from internal/demos so
-// the scs CLI and the scs-web server stay in sync.
+// the fate CLI and the fate-studio server stay in sync.
 var registry = buildRegistry()
 
 func buildRegistry() []registryEntry {
@@ -25,7 +25,7 @@ func buildRegistry() []registryEntry {
 		out = append(out, registryEntry{
 			name:    d.Name,
 			summary: d.Summary,
-			build:   func() fate.MachineDescriptor { return d.Machine().Describe() },
+			build:   d.Descriptor,
 		})
 	}
 	return out

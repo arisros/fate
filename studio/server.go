@@ -33,7 +33,7 @@ type Server struct {
 // NewServer returns an empty studio. title appears in the page header.
 func NewServer(title string) *Server {
 	if title == "" {
-		title = "scs studio"
+		title = "fate studio"
 	}
 	return &Server{title: title, sessions: newSessionStore()}
 }

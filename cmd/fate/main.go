@@ -1,4 +1,4 @@
-// scs — statechart-studio CLI. Stdlib-only first cut.
+// fate — statechart-studio CLI. Stdlib-only first cut.
 //
 // This is the non-interactive subset of the P7 TUI Studio. It exercises
 // the descriptor + ASCII renderer + diff pieces of framework/statechart
@@ -9,12 +9,12 @@
 //
 // Usage:
 //
-//	scs list
-//	scs view <machine>                     # ASCII state diagram + transition sidebar (root)
-//	scs view <machine> <state-path>        # ASCII diagram + transitions out of <state-path>
-//	scs describe <machine>                 # JSON descriptor (pretty-printed)
-//	scs snap <file.json>                   # Inspect a persisted snapshot
-//	scs diff <left.json> <right.json>      # Snapshot diff
+//	fate list
+//	fate view <machine>                     # ASCII state diagram + transition sidebar (root)
+//	fate view <machine> <state-path>        # ASCII diagram + transitions out of <state-path>
+//	fate describe <machine>                 # JSON descriptor (pretty-printed)
+//	fate snap <file.json>                   # Inspect a persisted snapshot
+//	fate diff <left.json> <right.json>      # Snapshot diff
 //
 // Machine names are resolved against the built-in registry below.
 package main
@@ -28,14 +28,14 @@ import (
 	sc "github.com/arisros/fate"
 )
 
-const usage = `scs — statechart-studio (data-layer commands)
+const usage = `fate — statechart-studio (data-layer commands)
 
 Commands:
-  scs list                            List built-in demo machines
-  scs view <machine> [state-path]     Render ASCII state diagram + transition sidebar
-  scs describe <machine>              Print JSON descriptor (pretty)
-  scs snap <file.json>                Inspect a persisted snapshot
-  scs diff <left.json> <right.json>   Structural diff between two snapshots
+  fate list                            List built-in demo machines
+  fate view <machine> [state-path]     Render ASCII state diagram + transition sidebar
+  fate describe <machine>              Print JSON descriptor (pretty)
+  fate snap <file.json>                Inspect a persisted snapshot
+  fate diff <left.json> <right.json>   Structural diff between two snapshots
 `
 
 func main() {
@@ -58,7 +58,7 @@ func main() {
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:
-		fmt.Fprintf(os.Stderr, "scs: unknown command %q\n\n%s", cmd, usage)
+		fmt.Fprintf(os.Stderr, "fate: unknown command %q\n\n%s", cmd, usage)
 		os.Exit(2)
 	}
 }
@@ -70,7 +70,7 @@ func runList() {
 		fmt.Printf("  %-18s  %s\n", e.name, e.summary)
 	}
 	fmt.Println()
-	fmt.Println("Hint: run `scs view <name>` to see one rendered.")
+	fmt.Println("Hint: run `fate view <name>` to see one rendered.")
 }
 
 func runView(args []string) {
@@ -184,11 +184,11 @@ func mustLookup(name string) registryEntry {
 }
 
 func die(msg string) {
-	fmt.Fprintln(os.Stderr, "scs: "+msg)
+	fmt.Fprintln(os.Stderr, "fate: "+msg)
 	os.Exit(1)
 }
 
 // flag is imported to keep open the obvious extension point: subcommand-
-// local flags (e.g. `scs view <machine> --highlight pin_challenge`).
+// local flags (e.g. `fate view <machine> --highlight pin_challenge`).
 // Routed manually for now since the command surface is small.
 var _ = flag.NewFlagSet

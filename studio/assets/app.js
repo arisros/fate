@@ -1,9 +1,9 @@
-/* scs studio — self-hosted Stately-style canvas. Vanilla JS + elkjs layout.
+/* fate studio — self-hosted Stately-style canvas. Vanilla JS + elkjs layout.
    The graph STRUCTURE is laid out once; SSE only re-highlights. The Go engine
-   is authoritative (events POST to /sim/{m}/send). Globals: SCS_MACHINE, SCS_EVENTS. */
+   is authoritative (events POST to /sim/{m}/send). Globals: FATE_MACHINE, FATE_EVENTS. */
 (function () {
   "use strict";
-  var machine = window.SCS_MACHINE;
+  var machine = window.FATE_MACHINE;
   var base = "/sim/" + encodeURIComponent(machine);
   // Node geometry. These MUST match the fixed heights in app.css (.nhead and
   // .erow) so the JS-computed box never clips a row and edge anchors line up.
@@ -13,7 +13,7 @@
     nodes: {},        // id -> {node, abs:{x,y,w,h}, el, events:[edge...], el}
     edges: [],        // raw edges
     activePaths: [],  // active leaf dot-paths
-    available: window.SCS_EVENTS || [],
+    available: window.FATE_EVENTS || [],
     sent: [],
     view: { x: 30, y: 30, scale: 1 },
     pos: {},          // id -> {x,y} manual overrides (localStorage)
@@ -21,8 +21,8 @@
   };
 
   // ---------- theme + toasts ----------
-  function curTheme() { return localStorage.getItem("scs-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
-  function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); localStorage.setItem("scs-theme", t); }
+  function curTheme() { return localStorage.getItem("fate-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
+  function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); localStorage.setItem("fate-theme", t); }
   function toast(msg, kind) {
     var box = document.getElementById("toasts"), el = document.createElement("div");
     el.className = "toast " + (kind || ""); el.textContent = msg; box.appendChild(el);
@@ -30,8 +30,8 @@
   }
 
   // ---------- graph load + layout ----------
-  function loadPos() { try { return JSON.parse(localStorage.getItem("scs-pos-" + machine) || "{}"); } catch (_) { return {}; } }
-  function savePos() { localStorage.setItem("scs-pos-" + machine, JSON.stringify(state.pos)); }
+  function loadPos() { try { return JSON.parse(localStorage.getItem("fate-pos-" + machine) || "{}"); } catch (_) { return {}; } }
+  function savePos() { localStorage.setItem("fate-pos-" + machine, JSON.stringify(state.pos)); }
 
   // Persistent status line inside the canvas (NOT a fading toast) so layout
   // failures are always visible instead of leaving a blank screen.
