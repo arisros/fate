@@ -1,4 +1,4 @@
-# GoReleaser configuration for the fate CLIs (scs, scs-web).
+# GoReleaser configuration for the fate CLIs (fate, fate-studio).
 # Tagging vX.Y.Z triggers .github/workflows/release.yml, which runs goreleaser
 # to build cross-platform binaries, archives, and checksums, and publishes them
 # on the GitHub release.
@@ -11,17 +11,17 @@ before:
     - go mod tidy
 
 builds:
-  - id: scs
-    main: ./cmd/scs
-    binary: scs
+  - id: fate
+    main: ./cmd/fate
+    binary: fate
     env: [CGO_ENABLED=0]
     flags: [-trimpath]
     ldflags: ["-s -w"]
     goos: [linux, darwin]
     goarch: [amd64, arm64]
-  - id: scs-web
-    main: ./cmd/scs-web
-    binary: scs-web
+  - id: fate-studio
+    main: ./cmd/fate-studio
+    binary: fate-studio
     env: [CGO_ENABLED=0]
     flags: [-trimpath]
     ldflags: ["-s -w"]
@@ -30,7 +30,7 @@ builds:
 
 archives:
   - id: default
-    ids: [scs, scs-web]
+    ids: [fate, fate-studio]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     format_overrides:
