@@ -1,0 +1,12 @@
+# Build / test artifacts
+/dist/
+*.out
+*.test
+cover.out
+coverage.*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
