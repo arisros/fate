@@ -11,6 +11,7 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -34,6 +35,30 @@ type LiveInstance interface {
 	Restore(snapshot []byte) error
 	// AvailableEvents lists the event names sendable from the active state.
 	AvailableEvents() []string
+
+	// PendingTimers lists the delayed ("after") transitions currently armed.
+	PendingTimers() []TimerInfo
+	// FireTimer delivers an elapsed delay for the given timer id.
+	FireTimer(id string) error
+	// PendingInvocations lists the invocations currently awaiting a result.
+	PendingInvocations() []InvokeInfo
+	// ResolveInvocation completes an invocation with the given JSON output
+	// (empty string = null output).
+	ResolveInvocation(id, outputJSON string) error
+	// RejectInvocation fails an invocation with the given error message.
+	RejectInvocation(id, errMsg string) error
+}
+
+// TimerInfo describes one armed delayed transition for the studio UI.
+type TimerInfo struct {
+	ID    string `json:"id"`
+	Delay string `json:"delay"`
+}
+
+// InvokeInfo describes one pending invocation for the studio UI.
+type InvokeInfo struct {
+	ID  string `json:"id"`
+	Src string `json:"src"`
 }
 
 // LiveSnapshot is the JSON payload pushed over SSE after every event. The
@@ -41,10 +66,12 @@ type LiveInstance interface {
 // carries what changes per event (active path, context, status). The studio
 // re-highlights the already-laid-out canvas — no re-layout per event.
 type LiveSnapshot struct {
-	Path    string          `json:"path"`
-	Context json.RawMessage `json:"context"`
-	Status  sc.ActorStatus  `json:"status"`
-	ASCII   string          `json:"ascii"` // ASCII diagram (CLI / static view)
+	Path        string          `json:"path"`
+	Context     json.RawMessage `json:"context"`
+	Status      sc.ActorStatus  `json:"status"`
+	ASCII       string          `json:"ascii"` // ASCII diagram (CLI / static view)
+	Timers      []TimerInfo     `json:"timers,omitempty"`
+	Invocations []InvokeInfo    `json:"invocations,omitempty"`
 }
 
 // liveActor wraps a typed Actor[Ctx, Evt] as a LiveInstance.
@@ -107,11 +134,55 @@ func (e *liveActor[Ctx, Evt]) Snapshot() LiveSnapshot {
 	activePath := snap.Value.Path()
 	hl := highlightForActivePath(activePath)
 	return LiveSnapshot{
-		Path:    activePath,
-		Context: ctxBytes,
-		Status:  snap.Status,
-		ASCII:   sc.RenderASCII(d, sc.RenderOptions{Highlight: hl}),
+		Path:        activePath,
+		Context:     ctxBytes,
+		Status:      snap.Status,
+		ASCII:       sc.RenderASCII(d, sc.RenderOptions{Highlight: hl}),
+		Timers:      e.PendingTimers(),
+		Invocations: e.PendingInvocations(),
 	}
+}
+
+func (e *liveActor[Ctx, Evt]) PendingTimers() []TimerInfo {
+	pts := e.actor.PendingTimers()
+	out := make([]TimerInfo, 0, len(pts))
+	for _, p := range pts {
+		out = append(out, TimerInfo{ID: string(p.ID), Delay: p.Delay.String()})
+	}
+	return out
+}
+
+func (e *liveActor[Ctx, Evt]) FireTimer(id string) error {
+	e.actor.FireTimer(sc.TimerID(id))
+	return nil
+}
+
+func (e *liveActor[Ctx, Evt]) PendingInvocations() []InvokeInfo {
+	pis := e.actor.PendingInvocations()
+	out := make([]InvokeInfo, 0, len(pis))
+	for _, p := range pis {
+		out = append(out, InvokeInfo{ID: string(p.ID), Src: p.Src})
+	}
+	return out
+}
+
+func (e *liveActor[Ctx, Evt]) ResolveInvocation(id, outputJSON string) error {
+	var out interface{}
+	if s := strings.TrimSpace(outputJSON); s != "" {
+		if err := json.Unmarshal([]byte(s), &out); err != nil {
+			return fmt.Errorf("output is not valid JSON: %w", err)
+		}
+	}
+	e.actor.ResolveInvocation(sc.InvokeID(id), out)
+	return nil
+}
+
+func (e *liveActor[Ctx, Evt]) RejectInvocation(id, errMsg string) error {
+	if errMsg == "" {
+		errMsg = "rejected from studio"
+	}
+	e.actor.RejectInvocation(sc.InvokeID(id), errors.New(errMsg))
+	return nil
 }
 
 func (e *liveActor[Ctx, Evt]) Persist() ([]byte, error) {
