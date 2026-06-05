@@ -9,6 +9,24 @@ flagged explicitly under a **Breaking** heading.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-05
+
+The engine is now a focused, dependency-free library: the studio moved to its own
+repository, and there is a documentation set covering the model and its use.
+
+### Added
+- A documentation set under `docs/` — concepts, and guides for defining machines,
+  persistence and determinism, effects and adapters, and Temporal.
+
+### Breaking
+- The studio moved to its own repository and module,
+  [github.com/arisros/fate-studio](https://github.com/arisros/fate-studio). The
+  `fate/studio` package, the demo machines, and the `fate-studio` server are no
+  longer part of this module, so the engine no longer pulls in `net/http`.
+- The `fate` CLI is now engine-only and file-based: `render` / `mermaid` /
+  `graph` / `snap` / `diff` operate on descriptor and snapshot JSON, with no
+  built-in demo machines.
+
 ## [0.3.0] - 2026-06-05
 
 Studio: timer/invoke visualization, a redesigned welcome page, a Sentry-inspired
