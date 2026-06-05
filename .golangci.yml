@@ -1,0 +1,59 @@
+# golangci-lint configuration for fate.
+# The headline rule: every exported symbol must be documented.
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - revive        # exported-symbol documentation + style
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unconvert
+    - misspell
+    - gofmt
+    - goimports
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        severity: error
+        arguments:
+          - checkPrivateReceivers
+          - sayRepetitiveInsteadOfStutters
+      - name: package-comments
+      - name: blank-imports
+      - name: context-as-argument
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: if-return
+      - name: increment-decrement
+      - name: var-declaration
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+  goimports:
+    local-prefixes: github.com/arisros/fate
+
+issues:
+  exclude-rules:
+    # Test files may omit doc comments and carry intentionally-unused fixtures
+    # (event types kept for parity with the machines they document).
+    - path: _test\.go
+      linters:
+        - revive
+        - unused
+    # The unused linter cannot see that a generic concrete type's method
+    # satisfies an unexported interface method called only through the
+    # interface (a known limitation with generics). The Action implementations'
+    # apply method is dispatched via the Action interface in runActions.
+    - linters:
+        - unused
+      text: "\\.apply is unused"
+  max-issues-per-linter: 0
+  max-same-issues: 0
