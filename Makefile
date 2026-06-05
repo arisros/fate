@@ -13,7 +13,7 @@ test-race:
 	cd temporal && go test -race ./...
 
 cover:
-	go test -coverprofile=cover.out $$(go list ./... | grep -v '/examples/')
+	go test -coverprofile=cover.out $$(go list ./... | grep -vE '/examples/|/cmd/|/internal/demos')
 	@go tool cover -func=cover.out | tail -1
 	@total=$$(go tool cover -func=cover.out | awk '/^total:/ {print substr($$3,1,length($$3)-1)}'); \
 		awk "BEGIN { exit !($$total >= 85) }" || { echo "coverage $$total% below 85% gate"; exit 1; }

@@ -9,6 +9,25 @@ flagged explicitly under a **Breaking** heading.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-05
+
+The studio release: a viewer/simulator and the `scs` / `scs-web` binaries.
+
+### Added
+- `fate/studio` — an embeddable, dependency-free HTTP statechart studio: a chart
+  viewer and live, Server-Sent-Events simulator for any fate machine. Endpoints
+  for the machine list, static diagram, JSON descriptor, resolved canvas graph,
+  per-state inspection, and a per-browser-session simulator (send, undo, reset,
+  import/export, timeline). Carries forward the proof-of-concept's resilience
+  fixes (elk fallback layout, NaN guards, content-versioned asset cache-busting).
+- `scs` CLI (list / view / describe / snap / diff) and `scs-web` server, serving
+  a set of generic demo machines (traffic light, media player, build pipeline,
+  deep-history document editor).
+- A multi-stage, distroless `Dockerfile` for `scs-web`, and a GoReleaser config
+  building the `scs` / `scs-web` binaries on release (validated in CI).
+- Studio endpoint coverage via `httptest`; the studio package ships in the root
+  module and keeps it standard-library only.
+
 ## [0.1.0] - 2026-06-05
 
 First public release: the statechart engine and its Temporal adapter.
