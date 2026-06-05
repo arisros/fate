@@ -81,6 +81,21 @@ func NewWorkflowActorFromSnapshot[Ctx any, Evt any](
 	return &WorkflowActor[Ctx, Evt]{ctx: ctx, actor: a, opts: opts}, nil
 }
 
+// Start runs the actor's initial entry. NewWorkflowActor already starts the
+// actor, so Start is idempotent and returns nil when the actor is already
+// running. It is provided for callers that drive the actor manually (one Send
+// per workflow callback, reading Snapshot between them) and prefer an explicit
+// start in their own control flow.
+func (w *WorkflowActor[Ctx, Evt]) Start() error {
+	return w.actor.Start(context.Background())
+}
+
+// Stop halts the hosted actor. A subsequent Send returns an error. Manual
+// drivers call this when the workflow's task lifecycle ends.
+func (w *WorkflowActor[Ctx, Evt]) Stop() {
+	w.actor.Stop()
+}
+
 // Send delivers an event to the hosted actor from workflow code. It must be
 // called on the workflow goroutine.
 func (w *WorkflowActor[Ctx, Evt]) Send(evt Evt) error {
