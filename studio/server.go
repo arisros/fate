@@ -87,26 +87,20 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	var rows strings.Builder
+	var cards strings.Builder
 	for _, e := range s.entries {
-		simCell := "—"
+		sim := ""
 		if e.BuildLive != nil {
-			simCell = fmt.Sprintf(`<a href="/sim/%s">▶ simulate</a>`, html.EscapeString(e.Name))
+			sim = fmt.Sprintf(`<a class="sim" href="/sim/%s">▶ simulate</a>`, html.EscapeString(e.Name))
 		}
-		fmt.Fprintf(&rows,
-			`<tr><td><a href="/m/%s">%s</a></td><td>%s</td><td>%s</td></tr>`,
-			html.EscapeString(e.Name), html.EscapeString(e.Name),
-			html.EscapeString(e.Summary), simCell)
+		fmt.Fprintf(&cards,
+			`<div class="machine-card"><div class="mname">%s</div><div class="msum">%s</div>`+
+				`<div class="mlinks"><a class="view" href="/m/%s">view</a>%s</div></div>`,
+			html.EscapeString(e.Name), html.EscapeString(e.Summary),
+			html.EscapeString(e.Name), sim)
 	}
 	w.Header().Set("content-type", "text/html; charset=utf-8")
-	renderShell(w, pageShell, html.EscapeString(s.title),
-		fmt.Sprintf(`<h1>%s</h1>
-<p>Interactive statechart studio. <strong>Simulate</strong> sends events and watches the
-active state update live (Server-Sent Events); <strong>view</strong> renders the static
-ASCII diagram and transition table.</p>
-<h2>Machines</h2>
-<table><thead><tr><th>Name</th><th>Summary</th><th>Simulator</th></tr></thead><tbody>%s</tbody></table>`,
-			html.EscapeString(s.title), rows.String()))
+	renderShell(w, welcomeShell, html.EscapeString(s.title), cards.String())
 }
 
 func (s *Server) handleMachine(w http.ResponseWriter, r *http.Request) {
