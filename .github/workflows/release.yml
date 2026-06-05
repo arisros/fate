@@ -27,7 +27,3 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-# The fate-studio Docker image is built from the repository Dockerfile
-# (`docker build -t fate-studio .`). Publishing it to a registry can be wired
-# into GoReleaser's `dockers:` section once a registry/credentials are chosen.
