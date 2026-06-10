@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/arisros/fate"
+	"github.com/arisros/fate/render"
 )
 
 func main() {
@@ -46,5 +47,5 @@ func main() {
 	}
 
 	fmt.Println("\nMermaid diagram:")
-	fmt.Println(fate.RenderMermaid(m.Describe(), fate.MermaidOptions{}))
+	fmt.Println(render.Mermaid(m.Describe(), render.MermaidOptions{}))
 }

@@ -1,11 +1,11 @@
-package fate_test
+package render_test
 
-// Golden-file tests for RenderASCII. Each test case builds a small but
-// representative machine, renders it, and compares to a checked-in .golden
-// file under testdata/ascii_graph/. To regenerate the golden files after a
-// renderer change, run:
+// Golden-file tests for ASCII. Each test case builds a small but representative
+// machine, renders it, and compares to a checked-in .golden file under
+// testdata/ascii_graph/. To regenerate the golden files after a renderer
+// change, run:
 //
-//   go test -count=1 -run TestRenderASCII_Golden ./... -update
+//	go test -count=1 -run TestASCII_Golden ./render/... -update
 //
 // The -update flag is parsed by this file's init() — it's a *testing* flag,
 // not a build flag, so it doesn't affect normal runs.
@@ -17,13 +17,11 @@ import (
 	"testing"
 
 	sc "github.com/arisros/fate"
+	"github.com/arisros/fate/render"
 )
 
 var updateGolden = flag.Bool("update", false, "regenerate golden files under testdata/ascii_graph/")
 
-// goldenCase pairs a builder with the relative path of its golden file
-// under testdata/ascii_graph/. Highlight is optional; nil means render
-// the static machine layout (no active state marked).
 type goldenCase struct {
 	name       string
 	build      func(t *testing.T) sc.MachineDescriptor
@@ -57,12 +55,12 @@ func goldenCases() []goldenCase {
 	}
 }
 
-func TestRenderASCII_Golden(t *testing.T) {
+func TestASCII_Golden(t *testing.T) {
 	for _, c := range goldenCases() {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			d := c.build(t)
-			got := sc.RenderASCII(d, sc.RenderOptions{Highlight: c.highlight})
+			got := render.ASCII(d, render.Options{Highlight: c.highlight})
 			path := filepath.Join("testdata", "ascii_graph", c.goldenFile)
 			if *updateGolden {
 				if err := os.WriteFile(path, []byte(got), 0644); err != nil {
@@ -81,13 +79,6 @@ func TestRenderASCII_Golden(t *testing.T) {
 		})
 	}
 }
-
-// ----- Golden fixture builders -----
-//
-// Kept compact and stable: any structural edit invalidates the .golden files.
-// The fixtures are deliberately small, generic, and human-scannable — one
-// linear compound machine and one parallel-region machine — so the golden
-// files document the renderer's output for the two structural shapes.
 
 type gldCtx struct{}
 type gldEvt interface{ isGldEvt() }
@@ -115,8 +106,6 @@ func buildTrafficLightFixture(t *testing.T) sc.MachineDescriptor {
 
 func buildParallelGoldenFixture(t *testing.T) sc.MachineDescriptor {
 	t.Helper()
-	// A media player: three independent regions (audio, video, captions) all
-	// active at once, each a small working-state → done-final compound.
 	region := func(workName string) sc.StateNodeConfig[gldCtx, gldEvt] {
 		return sc.StateNodeConfig[gldCtx, gldEvt]{
 			Initial: workName,
@@ -150,7 +139,6 @@ func buildParallelGoldenFixture(t *testing.T) sc.MachineDescriptor {
 
 func buildLinearGoldenFixture(t *testing.T) sc.MachineDescriptor {
 	t.Helper()
-	// A simple linear pipeline: ingest → validate → transform → done (final).
 	m, err := sc.CreateMachine(sc.MachineConfig[gldCtx, gldEvt]{
 		ID:      "pipeline",
 		Initial: "ingest",

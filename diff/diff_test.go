@@ -1,12 +1,11 @@
-package fate_test
-
-// Snapshot-diff tests.
+package diff_test
 
 import (
 	"strings"
 	"testing"
 
 	sc "github.com/arisros/fate"
+	"github.com/arisros/fate/diff"
 )
 
 type diffCtx struct {
@@ -20,25 +19,25 @@ func snap(value sc.StateValue, status sc.ActorStatus, ctx diffCtx) sc.Snapshot[d
 	return sc.Snapshot[diffCtx]{Value: value, Status: status, Context: ctx}
 }
 
-func TestDiff_EmptyWhenSnapshotsEqual(t *testing.T) {
+func TestSnapshots_EmptyWhenEqual(t *testing.T) {
 	a := snap(sc.AtomicValue("active"), sc.StatusRunning, diffCtx{Stage: "pin", Score: 5})
 	b := snap(sc.AtomicValue("active"), sc.StatusRunning, diffCtx{Stage: "pin", Score: 5})
-	d := sc.DiffSnapshots(a, b)
+	d := diff.Snapshots(a, b)
 	if !d.Empty() {
 		t.Errorf("expected empty diff; got %v", d.Strings())
 	}
 }
 
-func TestDiff_StateValueDifference(t *testing.T) {
+func TestSnapshots_StateValueDifference(t *testing.T) {
 	a := snap(sc.AtomicValue("verif"), sc.StatusRunning, diffCtx{})
 	b := snap(sc.AtomicValue("asset_doc"), sc.StatusRunning, diffCtx{})
-	d := sc.DiffSnapshots(a, b)
+	d := diff.Snapshots(a, b)
 	if d.Empty() {
 		t.Fatal("expected non-empty diff")
 	}
 	var found bool
 	for _, e := range d.Entries {
-		if e.Kind == sc.DiffKindStateValue && e.From == "verif" && e.To == "asset_doc" {
+		if e.Kind == diff.KindStateValue && e.From == "verif" && e.To == "asset_doc" {
 			found = true
 		}
 	}
@@ -47,13 +46,13 @@ func TestDiff_StateValueDifference(t *testing.T) {
 	}
 }
 
-func TestDiff_StatusDifference(t *testing.T) {
+func TestSnapshots_StatusDifference(t *testing.T) {
 	a := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{})
 	b := snap(sc.AtomicValue("x"), sc.StatusDone, diffCtx{})
-	d := sc.DiffSnapshots(a, b)
+	d := diff.Snapshots(a, b)
 	var found bool
 	for _, e := range d.Entries {
-		if e.Kind == sc.DiffKindStatus && e.From == "running" && e.To == "done" {
+		if e.Kind == diff.KindStatus && e.From == "running" && e.To == "done" {
 			found = true
 		}
 	}
@@ -62,16 +61,16 @@ func TestDiff_StatusDifference(t *testing.T) {
 	}
 }
 
-func TestDiff_ContextFieldDifference(t *testing.T) {
+func TestSnapshots_ContextFieldDifference(t *testing.T) {
 	a := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Stage: "pin", Score: 5})
 	b := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Stage: "pin", Score: 9})
-	d := sc.DiffSnapshots(a, b)
+	d := diff.Snapshots(a, b)
 	if d.Empty() {
 		t.Fatal("expected non-empty diff")
 	}
 	var found bool
 	for _, e := range d.Entries {
-		if e.Kind == sc.DiffKindContextField && e.Field == "score" && e.From == "5" && e.To == "9" {
+		if e.Kind == diff.KindContextField && e.Field == "score" && e.From == "5" && e.To == "9" {
 			found = true
 		}
 	}
@@ -80,13 +79,13 @@ func TestDiff_ContextFieldDifference(t *testing.T) {
 	}
 }
 
-func TestDiff_MissingFieldSurfacesAsContextField(t *testing.T) {
+func TestSnapshots_MissingFieldSurfacesAsContextField(t *testing.T) {
 	a := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Stage: "pin", Flags: map[string]any{"vip": true}})
 	b := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Stage: "pin"})
-	d := sc.DiffSnapshots(a, b)
+	d := diff.Snapshots(a, b)
 	var found bool
 	for _, e := range d.Entries {
-		if e.Kind == sc.DiffKindContextField && strings.HasPrefix(e.Field, "flags") {
+		if e.Kind == diff.KindContextField && strings.HasPrefix(e.Field, "flags") {
 			found = true
 		}
 	}
@@ -95,13 +94,13 @@ func TestDiff_MissingFieldSurfacesAsContextField(t *testing.T) {
 	}
 }
 
-func TestDiff_ArrayLengthDifference(t *testing.T) {
+func TestSnapshots_ArrayLengthDifference(t *testing.T) {
 	a := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Tags: []string{"a", "b"}})
 	b := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Tags: []string{"a", "b", "c"}})
-	d := sc.DiffSnapshots(a, b)
+	d := diff.Snapshots(a, b)
 	var found bool
 	for _, e := range d.Entries {
-		if e.Kind == sc.DiffKindContextField && e.Field == "tags.length" && e.From == "2" && e.To == "3" {
+		if e.Kind == diff.KindContextField && e.Field == "tags.length" && e.From == "2" && e.To == "3" {
 			found = true
 		}
 	}
@@ -110,16 +109,15 @@ func TestDiff_ArrayLengthDifference(t *testing.T) {
 	}
 }
 
-func TestDiff_StringsAreSortedAndDeterministic(t *testing.T) {
+func TestSnapshots_StringsAreSortedAndDeterministic(t *testing.T) {
 	a := snap(sc.AtomicValue("verif"), sc.StatusRunning, diffCtx{Stage: "pin", Score: 5})
 	b := snap(sc.AtomicValue("asset_doc"), sc.StatusDone, diffCtx{Stage: "verif", Score: 9})
-	d := sc.DiffSnapshots(a, b)
+	d := diff.Snapshots(a, b)
 
 	got := d.Strings()
 	if len(got) < 3 {
 		t.Fatalf("expected at least 3 diff entries; got %v", got)
 	}
-	// Strings() output must be sorted.
 	for i := 1; i < len(got); i++ {
 		if got[i-1] > got[i] {
 			t.Errorf("Strings() not sorted: %q > %q\nfull: %v", got[i-1], got[i], got)

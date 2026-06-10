@@ -1,13 +1,13 @@
-package fate_test
+package render_test
 
-// ASCII graph rendering tests. Loose-shape (substring) assertions for now;
-// the P7 studio will add golden-file tests for canonical layouts.
+// ASCII graph rendering tests.
 
 import (
 	"strings"
 	"testing"
 
 	sc "github.com/arisros/fate"
+	"github.com/arisros/fate/render"
 )
 
 type gCtx struct{}
@@ -53,9 +53,9 @@ func buildGraphFixture(t *testing.T) sc.MachineDescriptor {
 	return m.Describe()
 }
 
-func TestRenderASCII_IncludesHeaderAndInitialMarker(t *testing.T) {
+func TestASCII_IncludesHeaderAndInitialMarker(t *testing.T) {
 	d := buildGraphFixture(t)
-	out := sc.RenderASCII(d, sc.RenderOptions{})
+	out := render.ASCII(d, render.Options{})
 	if !strings.Contains(out, "Machine: graph-fixture") {
 		t.Errorf("missing header; got:\n%s", out)
 	}
@@ -67,9 +67,9 @@ func TestRenderASCII_IncludesHeaderAndInitialMarker(t *testing.T) {
 	}
 }
 
-func TestRenderASCII_BracketsCompoundAndShowsFinal(t *testing.T) {
+func TestASCII_BracketsCompoundAndShowsFinal(t *testing.T) {
 	d := buildGraphFixture(t)
-	out := sc.RenderASCII(d, sc.RenderOptions{})
+	out := render.ASCII(d, render.Options{})
 	if !strings.Contains(out, "┌─ active") {
 		t.Errorf("compound open missing; got:\n%s", out)
 	}
@@ -81,9 +81,9 @@ func TestRenderASCII_BracketsCompoundAndShowsFinal(t *testing.T) {
 	}
 }
 
-func TestRenderASCII_ParallelRegionsHaveDividers(t *testing.T) {
+func TestASCII_ParallelRegionsHaveDividers(t *testing.T) {
 	d := buildGraphFixture(t)
-	out := sc.RenderASCII(d, sc.RenderOptions{})
+	out := render.ASCII(d, render.Options{})
 	if !strings.Contains(out, "[parallel]") {
 		t.Errorf("parallel tag missing; got:\n%s", out)
 	}
@@ -92,19 +92,17 @@ func TestRenderASCII_ParallelRegionsHaveDividers(t *testing.T) {
 	}
 }
 
-func TestRenderASCII_HighlightAppearsOnMatchAndAncestor(t *testing.T) {
+func TestASCII_HighlightAppearsOnMatchAndAncestor(t *testing.T) {
 	d := buildGraphFixture(t)
-	out := sc.RenderASCII(d, sc.RenderOptions{
+	out := render.ASCII(d, render.Options{
 		Highlight: map[string]rune{"active.running": '▶'},
 	})
 	if !strings.Contains(out, "▶ running") {
 		t.Errorf("highlight missing on active.running; got:\n%s", out)
 	}
-	// Ancestor 'active' should also receive the marker via the prefix rule.
 	if !strings.Contains(out, "▶ ┌─ active") {
 		t.Errorf("ancestor highlight missing on active; got:\n%s", out)
 	}
-	// Sibling 'paused' should NOT be marked.
 	for _, line := range strings.Split(out, "\n") {
 		if strings.Contains(line, "paused") && strings.Contains(line, "▶") {
 			t.Errorf("sibling paused incorrectly highlighted: %q", line)
@@ -112,9 +110,9 @@ func TestRenderASCII_HighlightAppearsOnMatchAndAncestor(t *testing.T) {
 	}
 }
 
-func TestRenderTransitions_ListsEventsWithInternalTag(t *testing.T) {
+func TestTransitions_ListsEventsWithInternalTag(t *testing.T) {
 	d := buildGraphFixture(t)
-	got := sc.RenderTransitions(d, "active.running")
+	got := render.Transitions(d, "active.running")
 	if !strings.Contains(got, "TICK") {
 		t.Errorf("TICK event missing; got:\n%s", got)
 	}
@@ -126,26 +124,26 @@ func TestRenderTransitions_ListsEventsWithInternalTag(t *testing.T) {
 	}
 }
 
-func TestRenderTransitions_NoneStateShowsNone(t *testing.T) {
+func TestTransitions_NoneStateShowsNone(t *testing.T) {
 	d := buildGraphFixture(t)
-	got := sc.RenderTransitions(d, "stopped")
+	got := render.Transitions(d, "stopped")
 	if !strings.Contains(got, "(none)") {
 		t.Errorf("expected '(none)' for stopped final; got:\n%s", got)
 	}
 }
 
-func TestRenderTransitions_UnknownPathReturnsEmpty(t *testing.T) {
+func TestTransitions_UnknownPathReturnsEmpty(t *testing.T) {
 	d := buildGraphFixture(t)
-	got := sc.RenderTransitions(d, "no.such.path")
+	got := render.Transitions(d, "no.such.path")
 	if got != "" {
 		t.Errorf("unknown path: expected empty, got %q", got)
 	}
 }
 
-func TestRenderASCII_DeterministicOutputAcrossRuns(t *testing.T) {
+func TestASCII_DeterministicOutputAcrossRuns(t *testing.T) {
 	d := buildGraphFixture(t)
-	out1 := sc.RenderASCII(d, sc.RenderOptions{})
-	out2 := sc.RenderASCII(d, sc.RenderOptions{})
+	out1 := render.ASCII(d, render.Options{})
+	out2 := render.ASCII(d, render.Options{})
 	if out1 != out2 {
 		t.Errorf("non-deterministic ASCII output across runs:\nrun1:\n%s\nrun2:\n%s", out1, out2)
 	}
