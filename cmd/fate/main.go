@@ -25,6 +25,8 @@ import (
 	"os"
 
 	"github.com/arisros/fate"
+	"github.com/arisros/fate/diff"
+	"github.com/arisros/fate/render"
 )
 
 const usage = `fate — inspect statecharts from JSON descriptors and snapshots
@@ -66,17 +68,17 @@ func main() {
 
 func runRender(args []string) {
 	d := mustDescriptor(arg(args, 0, "render"))
-	fmt.Println(fate.RenderASCII(d, fate.RenderOptions{}))
+	fmt.Println(render.ASCII(d, render.Options{}))
 }
 
 func runMermaid(args []string) {
 	d := mustDescriptor(arg(args, 0, "mermaid"))
-	fmt.Println(fate.RenderMermaid(d, fate.MermaidOptions{}))
+	fmt.Println(render.Mermaid(d, render.MermaidOptions{}))
 }
 
 func runGraph(args []string) {
 	d := mustDescriptor(arg(args, 0, "graph"))
-	b, err := json.MarshalIndent(fate.RenderGraphJSON(d), "", "  ")
+	b, err := json.MarshalIndent(render.GraphJSON(d), "", "  ")
 	if err != nil {
 		die("graph: marshal: %v", err)
 	}
@@ -115,7 +117,7 @@ func runDiff(args []string) {
 	}
 	left := readSnapshot(args[0])
 	right := readSnapshot(args[1])
-	d := fate.DiffSnapshots[json.RawMessage](left, right)
+	d := diff.Snapshots[json.RawMessage](left, right)
 	if d.Empty() {
 		fmt.Println("(no differences)")
 		return
