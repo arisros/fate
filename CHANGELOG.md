@@ -9,6 +9,48 @@ flagged explicitly under a **Breaking** heading.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-06
+
+Root package reduced to the core engine API. Visualization and diff are now
+opt-in sub-packages so adopters who don't need them avoid the code surface.
+
+### Breaking
+
+- **`fate/render` sub-package** — the three renderers and their types move out
+  of the root package:
+  - `fate.RenderASCII` → `render.ASCII`; `fate.RenderOptions` → `render.Options`
+  - `fate.RenderTransitions` → `render.Transitions`
+  - `fate.RenderMermaid` → `render.Mermaid`; `fate.MermaidOptions` unchanged
+  - `fate.RenderGraphJSON` → `render.GraphJSON`
+  - `fate.Graph`, `fate.GraphNode`, `fate.GraphEdge` → same names in `render`
+  - Import: `github.com/arisros/fate/render`
+
+- **`fate/diff` sub-package** — snapshot diffing moves out of the root package:
+  - `fate.DiffSnapshots` → `diff.Snapshots`
+  - `fate.DiffKind` → `diff.Kind`; constants `DiffKind*` → `Kind*`
+  - `fate.DiffEntry` → `diff.Entry`; `fate.SnapshotDiff` → `diff.Result`
+  - Import: `github.com/arisros/fate/diff`
+
+### Unchanged
+
+All core engine imports (`github.com/arisros/fate`) are unaffected: `Machine`,
+`Actor`, `Snapshot`, `Guard`, `Cond`, `Action`, `Setup`, `MachineDescriptor`,
+`LoadDescriptor`, etc. remain in the root package.
+
+## [0.4.1] - 2026-06-06
+
+### Changed
+- **File merges:** `version.go` absorbed into `doc.go`; `snapshot.go` absorbed
+  into `persist.go`; `guards.go` and `cond.go` merged into `guard.go`.
+- **File renames:** `ascii_graph.go` → `render_ascii.go`, `mermaid.go` →
+  `render_mermaid.go`, `graph.go` → `render_graph.go` (render-cluster naming);
+  `scxml.go` → `algorithm.go` (content is SCXML transition algorithms, not
+  SCXML parsing); `actions.go` → `action.go` (Go singular-noun convention);
+  `after.go` absorbed into and renamed to `timer.go` (timer types + implementation
+  unified). Test files track source renames.
+
+No public API changes. No import-path changes.
+
 ## [0.4.0] - 2026-06-05
 
 The engine is now a focused, dependency-free library: the studio moved to its own
