@@ -7,6 +7,7 @@ import (
 	"time"
 
 	fate "github.com/arisros/fate"
+	"github.com/arisros/fate/render"
 )
 
 // These tests exercise the public surface that the behavioural and property
@@ -129,16 +130,16 @@ func TestIntrospectionAndRendering(t *testing.T) {
 	if d.ID != "after" || len(d.States) == 0 {
 		t.Fatalf("Describe returned empty descriptor")
 	}
-	ascii := fate.RenderASCII(d, fate.RenderOptions{})
+	ascii := render.ASCII(d, render.Options{})
 	if !strings.Contains(ascii, "after") {
-		t.Fatalf("RenderASCII missing machine id:\n%s", ascii)
+		t.Fatalf("render.ASCII missing machine id:\n%s", ascii)
 	}
-	mer := fate.RenderMermaid(d, fate.MermaidOptions{})
+	mer := render.Mermaid(d, render.MermaidOptions{})
 	if !strings.Contains(mer, "stateDiagram") {
-		t.Fatalf("RenderMermaid missing diagram header:\n%s", mer)
+		t.Fatalf("render.Mermaid missing diagram header:\n%s", mer)
 	}
-	g := fate.RenderGraphJSON(d)
+	g := render.GraphJSON(d)
 	if len(g.Nodes) == 0 || g.ID != "after" {
-		t.Fatalf("RenderGraphJSON returned empty graph: %+v", g)
+		t.Fatalf("render.GraphJSON returned empty graph: %+v", g)
 	}
 }
