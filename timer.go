@@ -69,14 +69,22 @@ func (a *Actor[Ctx, Evt]) PendingTimers() []PendingTimer {
 // is how an adapter delivers an elapsed "after" delay back to the machine.
 // Firing an id that is not currently armed, or firing when the owning state is
 // no longer active, is a safe no-op.
-func (a *Actor[Ctx, Evt]) FireTimer(id TimerID) {
+//
+// The reported bool is true when the timer was armed and its owning state was
+// still active, so the delay reached the machine. A false result means the id
+// was unknown, already fired, or cancelled by an exit. Adapters that reconcile
+// timers against an external clock use it to tell a delivered delay from a late
+// callback for a state the machine has already left; callers that do not care
+// may discard it.
+func (a *Actor[Ctx, Evt]) FireTimer(id TimerID) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.fireTimerLocked(id)
+	fired := a.fireTimerLocked(id)
 	a.drainQueueLocked()
 	var zeroEvt Evt
 	a.settleFinalLocked(zeroEvt)
 	a.notifyLocked()
+	return fired
 }
 
 // armAfterLocked records every delayed transition declared on n as a pending
@@ -110,24 +118,25 @@ func (a *Actor[Ctx, Evt]) cancelAllAfterLocked() {
 // then fires the matching delayed transition as an internal step. The actor
 // mutex must be held. A timer cancelled (state exited) in the meantime is a
 // safe no-op.
-func (a *Actor[Ctx, Evt]) fireTimerLocked(id TimerID) {
+func (a *Actor[Ctx, Evt]) fireTimerLocked(id TimerID) bool {
 	if a.status != StatusRunning {
-		return
+		return false
 	}
 	binding, ok := a.armed[id]
 	if !ok {
-		return // cancelled or already fired
+		return false // cancelled or already fired
 	}
 	delete(a.armed, id)
 	// Defensive: only fire if the owning state is still active. (Exit cancels
 	// timers, so this should always hold, but a late wall-clock callback racing
 	// an exit is harmless this way.)
 	if _, active := extractValueAt[Ctx, Evt](a.machine.root, a.value, binding.node); !active {
-		return
+		return false
 	}
 
 	var zeroEvt Evt
 	a.handleAfterLocked(binding.node, binding.entry, zeroEvt)
+	return true
 }
 
 // handleAfterLocked selects and applies the first transition in a fired delay
