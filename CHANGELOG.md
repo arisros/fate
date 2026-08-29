@@ -9,10 +9,61 @@ flagged explicitly under a **Breaking** heading.
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-06-06
+## [0.5.0] - 2026-08-30
 
 Root package reduced to the core engine API. Visualization and diff are now
 opt-in sub-packages so adopters who don't need them avoid the code surface.
+Exit semantics under parallel regions are corrected, and guards and actions
+now carry names into the descriptor.
+
+### Added
+
+- **`fate/httphandler` sub-package** — exposes an [Actor] as an HTTP simulator
+  API (SSE `/stream`, plus `/send`, `/timer`, `/invoke`, `/reset`, `/undo`,
+  `/import`, `/export`, `/timeline`), wire-compatible with fate-studio's
+  `/sim/{name}/*` endpoints. One actor per browser session. It has no
+  authentication and is intended for development, not public exposure.
+
+- **`Actor.Can(evt) bool`** — reports whether an event would be handled by the
+  current configuration, guards included, without mutating the actor. `Send`
+  drops an unhandled event on purpose; `Can` is the companion for callers that
+  treat one as an error.
+
+- **`Named(name, action)`** — labels an action so it appears under that name in
+  a `MachineDescriptor` and in every rendered diagram.
+
+### Changed
+
+- **`FireTimer`, `ResolveInvocation` and `RejectInvocation` now return `bool`**
+  reporting whether the effect was accepted: the id was armed and its owning
+  state still active. Previously a stale or unknown id was an undetectable
+  no-op. Existing call sites need no change, since a bool result may be
+  discarded in a call statement.
+
+- **Guards and actions are named in `Machine.Describe`.** The built-in actions
+  report their kind (`assign`, `log`, `enqueue`, `raise:CANCEL`), and
+  `Setup.Action` labels what it hands out. Guards are matched back to their
+  registered names by `Setup.CreateMachine`; two names sharing one
+  implementation are left unnamed rather than resolved arbitrarily. Descriptor
+  output therefore changes for any machine that already used actions: names
+  that were `""` now carry a value.
+
+- **`Machine.findState` visits children alphabetically**, so `IsKnownState`,
+  `IsTerminal` and `IsLegalTransition` cannot disagree with themselves between
+  runs when two states at the same depth share a name.
+
+### Fixed
+
+- **Exit sets under parallel regions.** `computeExitSet` walked up from the
+  alphabetically first active leaf rather than from the transition's domain, so
+  a transition fired inside one region ran another region's `Exit` actions and
+  disarmed its timers and invocations, and a transition leaving the parallel
+  node exited only one region. The exit set is now every active node strictly
+  below the LCCA. The state value was always correct and is unchanged.
+
+- **Shallow history under parallel regions.** `recordHistoryLocked` searched
+  only the first active leaf, so a region that did not sort first recorded no
+  history and fell back to its default on re-entry.
 
 ### Breaking
 
@@ -30,6 +81,12 @@ opt-in sub-packages so adopters who don't need them avoid the code surface.
   - `fate.DiffKind` → `diff.Kind`; constants `DiffKind*` → `Kind*`
   - `fate.DiffEntry` → `diff.Entry`; `fate.SnapshotDiff` → `diff.Result`
   - Import: `github.com/arisros/fate/diff`
+
+- **`Actor.PersistDeterministic` removed.** It delegated to `Persist` and did
+  nothing else, while its documentation implied `Persist` carried a weaker
+  guarantee. `Persist` is the deterministic surface and always was: the
+  property tests that asserted byte-stability now assert it about `Persist`
+  directly. Callers should use `Persist`.
 
 ### Unchanged
 

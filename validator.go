@@ -72,6 +72,11 @@ func (m *Machine[Ctx, Evt]) States() []string {
 // findState returns the first state node whose local `name` matches.
 // Searches breadth-first to favor top-level matches when names collide
 // (they shouldn't in well-formed machines, but the search is defined).
+//
+// Children are visited in alphabetical order. Without that, two states sharing
+// a name at the same depth would resolve to whichever the map happened to yield
+// first, so IsKnownState, IsTerminal and IsLegalTransition could disagree with
+// themselves between runs of the same program.
 func (m *Machine[Ctx, Evt]) findState(name string) *stateNode[Ctx, Evt] {
 	queue := []*stateNode[Ctx, Evt]{m.root}
 	for len(queue) > 0 {
@@ -80,8 +85,13 @@ func (m *Machine[Ctx, Evt]) findState(name string) *stateNode[Ctx, Evt] {
 		if n.name == name {
 			return n
 		}
-		for _, child := range n.children {
-			queue = append(queue, child)
+		childNames := make([]string, 0, len(n.children))
+		for childName := range n.children {
+			childNames = append(childNames, childName)
+		}
+		sortStrings(childNames)
+		for _, childName := range childNames {
+			queue = append(queue, n.children[childName])
 		}
 	}
 	return nil

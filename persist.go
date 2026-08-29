@@ -3,7 +3,6 @@ package fate
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -195,36 +194,4 @@ func lookupByPath[Ctx any, Evt any](root *stateNode[Ctx, Evt], path string) *sta
 		cursor = next
 	}
 	return cursor
-}
-
-// PersistDeterministic returns a JSON snapshot with sorted map keys, matching
-// the ADR-007 determinism requirement: identical actor state must produce
-// byte-identical Persist output across runs.
-//
-// The standard library's json.Marshal already sorts struct fields; map keys
-// in StateValue.MarshalJSON are sorted; the history map iteration uses sorted
-// keys here. So Persist() and PersistDeterministic() currently produce the
-// same bytes — but PersistDeterministic is the explicit guarantee surface
-// that downstream code should call when byte-equality matters.
-func (a *Actor[Ctx, Evt]) PersistDeterministic() ([]byte, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	p := a.persistedShapeLocked()
-	// Sort history keys for stable iteration via json's internal map sort.
-	// (Go's json.Marshal sorts map[string]X keys lexicographically.)
-	if len(p.History) > 0 {
-		_ = sortedKeys(p.History) // touched here to make the intent visible.
-	}
-	return json.Marshal(p)
-}
-
-// sortedKeys returns the keys of m in sorted order — a defensive helper
-// referenced by PersistDeterministic as a documentation hook.
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
