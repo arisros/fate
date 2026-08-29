@@ -12,6 +12,7 @@ package fate
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 )
 
@@ -95,10 +96,11 @@ type TransitionDescriptor struct {
 // channel) the Context field is left nil and the rest of the descriptor
 // still renders correctly.
 //
-// Action and Guard names come from each value's ImplName() method when
-// implemented, falling back to "" otherwise. Anonymous closures therefore
-// show as empty strings — callers that care should name their actions
-// (see actions.go for helpers like Named, Assign).
+// Action names come from each value's ImplName() method: the built-in actions
+// report their kind ("assign", "raise:CANCEL", "log"), and [Named] attaches a
+// caller-chosen label. Guard names come from the registry a [Setup] builds, so
+// a guard referenced through [Setup.Guard] is labelled with the name it was
+// registered under. Anything unnamed falls back to "".
 func (m *Machine[Ctx, Evt]) Describe() MachineDescriptor {
 	d := MachineDescriptor{
 		ID:      m.id,
@@ -113,12 +115,12 @@ func (m *Machine[Ctx, Evt]) Describe() MachineDescriptor {
 		}
 	}
 	for name, child := range m.root.children {
-		d.States[name] = describeNode(child)
+		d.States[name] = describeNode(child, m.names)
 	}
 	return d
 }
 
-func describeNode[Ctx any, Evt any](n *stateNode[Ctx, Evt]) StateNodeDescriptor {
+func describeNode[Ctx any, Evt any](n *stateNode[Ctx, Evt], reg *nameRegistry) StateNodeDescriptor {
 	sd := StateNodeDescriptor{
 		Type:    n.typ.String(),
 		Initial: n.initial,
@@ -147,31 +149,29 @@ func describeNode[Ctx any, Evt any](n *stateNode[Ctx, Evt]) StateNodeDescriptor 
 		}
 		sort.Strings(eventKeys)
 		for _, ev := range eventKeys {
-			sd.On[ev] = describeTransitions(n.on[ev])
+			sd.On[ev] = describeTransitions(n.on[ev], reg)
 		}
 	}
 	if len(n.onDone) > 0 {
-		sd.OnDone = describeTransitions(n.onDone)
+		sd.OnDone = describeTransitions(n.onDone, reg)
 	}
 	if len(n.children) > 0 {
 		sd.States = map[string]StateNodeDescriptor{}
 		for name, child := range n.children {
-			sd.States[name] = describeNode(child)
+			sd.States[name] = describeNode(child, reg)
 		}
 	}
 	return sd
 }
 
-func describeTransitions[Ctx any, Evt any](ts []TransitionConfig[Ctx, Evt]) []TransitionDescriptor {
+func describeTransitions[Ctx any, Evt any](ts []TransitionConfig[Ctx, Evt], reg *nameRegistry) []TransitionDescriptor {
 	out := make([]TransitionDescriptor, 0, len(ts))
 	for _, t := range ts {
 		td := TransitionDescriptor{
 			Target:   t.Target,
 			Internal: t.Internal,
 		}
-		if t.Guard != nil {
-			td.Guard = guardName(t.Guard)
-		}
+		td.Guard = guardName(t.Guard, reg)
 		if names := describeActions(t.Actions); len(names) > 0 {
 			td.Actions = names
 		}
@@ -204,17 +204,17 @@ func actionName[Ctx any, Evt any](a Action[Ctx, Evt]) string {
 	return ""
 }
 
-// guardName extracts a human-readable name for a guard. Guard is a func
-// value with no interface method; the studio descriptor surfaces empty
-// strings for anonymous guards. Callers needing named guards should wrap
-// the closure in a struct that implements ImplName().
-func guardName[Ctx any, Evt any](g Guard[Ctx, Evt]) string {
+// guardName extracts a human-readable name for a guard.
+//
+// Guard is a defined func type with no methods, so unlike an Action a guard
+// cannot carry its own ImplName. Names therefore come from the registry a
+// [Setup] builds: a guard registered with [Setup.WithGuard] and referenced
+// through [Setup.Guard] is matched back to its name by implementation pointer.
+// A guard written inline in a [TransitionConfig], or one built without a Setup,
+// has no name to find and yields "".
+func guardName[Ctx any, Evt any](g Guard[Ctx, Evt], reg *nameRegistry) string {
 	if g == nil {
 		return ""
 	}
-	type named interface{ ImplName() string }
-	if n, ok := any(g).(named); ok {
-		return n.ImplName()
-	}
-	return ""
+	return reg.lookupGuard(reflect.ValueOf(g).Pointer())
 }

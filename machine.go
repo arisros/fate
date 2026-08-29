@@ -126,6 +126,11 @@ type Machine[Ctx any, Evt any] struct {
 	id      string
 	context Ctx
 	root    *stateNode[Ctx, Evt]
+	// names labels guards for Describe. Populated only by
+	// Setup.CreateMachine; nil for a machine built by CreateMachine directly,
+	// which is why every lookup tolerates a nil receiver. It affects
+	// descriptor output only and never how the machine runs.
+	names *nameRegistry
 }
 
 // stateNode is the post-validation in-memory representation. It mirrors

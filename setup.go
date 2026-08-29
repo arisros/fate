@@ -2,6 +2,7 @@ package fate
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 )
 
@@ -78,17 +79,22 @@ func (s *Setup[Ctx, Evt]) Guard(name string) Guard[Ctx, Evt] {
 // [TransitionConfig] or a state's Entry/Exit. If no action is registered under
 // name, Action records the missing reference (so [Setup.CreateMachine] returns
 // an error) and returns a no-op action.
+//
+// The returned action carries name, so it appears under that name in a
+// [MachineDescriptor] and in every rendered diagram, without the caller
+// repeating it through [Named]. Wrapping does not change how the action runs.
 func (s *Setup[Ctx, Evt]) Action(name string) Action[Ctx, Evt] {
 	if a, ok := s.actions[name]; ok {
-		return a
+		return Named(name, a)
 	}
 	s.missing["action:"+name] = struct{}{}
-	return assignAction[Ctx, Evt]{fn: nil}
+	return Named[Ctx, Evt](name, nil)
 }
 
 // CreateMachine validates and builds the machine, first reporting any guard or
 // action names referenced via [Setup.Guard] / [Setup.Action] that were never
-// registered. On success it is identical to calling [CreateMachine] directly.
+// registered. On success it behaves as [CreateMachine] does, and additionally
+// attaches the registry's names so [Machine.Describe] can label guards.
 func (s *Setup[Ctx, Evt]) CreateMachine(cfg MachineConfig[Ctx, Evt]) (*Machine[Ctx, Evt], error) {
 	if len(s.missing) > 0 {
 		names := make([]string, 0, len(s.missing))
@@ -98,5 +104,53 @@ func (s *Setup[Ctx, Evt]) CreateMachine(cfg MachineConfig[Ctx, Evt]) (*Machine[C
 		sort.Strings(names)
 		return nil, fmt.Errorf("%w: unregistered references %v", ErrInvalidConfig, names)
 	}
-	return CreateMachine(cfg)
+	m, err := CreateMachine(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m.names = s.buildNameRegistry()
+	return m, nil
+}
+
+// nameRegistry labels guards for [Machine.Describe]. Actions carry their own
+// ImplName, so only guards need it: [Guard] is a defined func type and cannot
+// hold a method, leaving the implementation pointer as the only identity a
+// guard value has.
+type nameRegistry struct {
+	guards map[uintptr]string
+}
+
+// lookupGuard returns the name registered for the guard at ptr, or "" when it
+// is unregistered or ambiguous. A nil receiver is valid and always returns "",
+// which is the case for a machine built without a [Setup].
+func (r *nameRegistry) lookupGuard(ptr uintptr) string {
+	if r == nil {
+		return ""
+	}
+	return r.guards[ptr]
+}
+
+// buildNameRegistry indexes the registered guards by implementation pointer.
+//
+// Two names sharing one implementation are left unnamed rather than resolved
+// arbitrarily. That happens when the same guard value is registered twice, and
+// also when two guards are closures over the same function literal, since Go
+// gives those the same code pointer. Silence is the honest answer there, and it
+// keeps the result independent of map iteration order.
+func (s *Setup[Ctx, Evt]) buildNameRegistry() *nameRegistry {
+	byPtr := make(map[uintptr][]string, len(s.guards))
+	for name, g := range s.guards {
+		if g == nil {
+			continue
+		}
+		ptr := reflect.ValueOf(g).Pointer()
+		byPtr[ptr] = append(byPtr[ptr], name)
+	}
+	reg := &nameRegistry{guards: make(map[uintptr]string, len(byPtr))}
+	for ptr, names := range byPtr {
+		if len(names) == 1 {
+			reg.guards[ptr] = names[0]
+		}
+	}
+	return reg
 }
