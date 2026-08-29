@@ -1,5 +1,10 @@
 package fate
 
+import (
+	"sort"
+	"strings"
+)
+
 // SCXML transition algorithms.
 //
 // Adapted from the W3C SCXML spec and XState v5's `stateUtils.ts`. Only the
@@ -42,26 +47,55 @@ func lcca[Ctx any, Evt any](source, target *stateNode[Ctx, Evt], internal bool) 
 // firing the transition. Order: deepest first (so exit actions run
 // child-then-parent).
 //
-// The exit set is every node from the active leaf up to (but not including)
-// the LCCA. For internal transitions where target is a descendant of source,
-// source itself stays active — only its descendants on the active branch exit.
+// The exit set is every active node strictly below the LCCA. For a
+// non-parallel configuration that is the single chain from the active leaf up
+// to (but not including) the LCCA. For internal transitions where target is a
+// descendant of source, source itself stays active and only its descendants on
+// the active branch exit.
+//
+// Parallel regions are why this is stated in terms of the LCCA rather than
+// "the active leaf". Several leaves are active at once, and the ones that
+// matter are exactly those inside the transition's domain: a transition fired
+// within one region has that region's ancestor as its LCCA, so no sibling
+// region is below it and none of their states exit. A transition that leaves
+// the parallel node itself has an LCCA above it, so every region's states
+// exit, each contributing its own chain.
 func computeExitSet[Ctx any, Evt any](
 	root *stateNode[Ctx, Evt],
 	current StateValue,
 	source, target *stateNode[Ctx, Evt],
 	internal bool,
 ) []*stateNode[Ctx, Evt] {
-	leaf := resolveLeaf[Ctx, Evt](root, current)
-	if leaf == nil {
-		return nil
-	}
 	common := lcca[Ctx, Evt](source, target, internal)
 
-	// Walk from the leaf up, collecting until we reach common (exclusive).
 	var exit []*stateNode[Ctx, Evt]
-	for cursor := leaf; cursor != nil && cursor != common; cursor = cursor.parent {
-		exit = append(exit, cursor)
+	seen := map[*stateNode[Ctx, Evt]]bool{}
+	for _, leaf := range resolveLeaves[Ctx, Evt](root, current) {
+		// A leaf outside the domain belongs to a region the transition does
+		// not touch. Walking it would run the wrong states' exit actions and
+		// disarm their timers and invocations.
+		if !isDescendant(leaf, common) {
+			continue
+		}
+		for cursor := leaf; cursor != nil && cursor != common; cursor = cursor.parent {
+			if seen[cursor] {
+				break // this chain has merged into one already collected
+			}
+			seen[cursor] = true
+			exit = append(exit, cursor)
+		}
 	}
+
+	// Deepest first, so a child's exit action runs before its parent's. Depth
+	// alone leaves siblings from different regions unordered, so path breaks
+	// the tie and keeps the order independent of map iteration.
+	sort.SliceStable(exit, func(i, j int) bool {
+		di, dj := len(exit[i].path), len(exit[j].path)
+		if di != dj {
+			return di > dj
+		}
+		return strings.Join(exit[i].path, ".") < strings.Join(exit[j].path, ".")
+	})
 	return exit
 }
 

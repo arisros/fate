@@ -395,15 +395,21 @@ func (a *Actor[Ctx, Evt]) resolveHistoryRedirect(target *stateNode[Ctx, Evt]) *s
 // a NodeHistory's History flag from Shallow to Deep (or vice versa) without
 // otherwise altering the machine still works deterministically.
 func (a *Actor[Ctx, Evt]) recordHistoryLocked(parent *stateNode[Ctx, Evt]) {
-	leaf := resolveLeaf[Ctx, Evt](a.machine.root, a.value)
-	if leaf == nil {
-		return
-	}
-	for cursor := leaf; cursor != nil; cursor = cursor.parent {
-		if cursor.parent == parent {
-			a.historyMemory[parent] = cursor.name
-			break
+	// Scan every active leaf, not just the first. Under parallel regions the
+	// first leaf alphabetically often sits in a different region from parent,
+	// and its ancestor chain never reaches parent, which would silently record
+	// no shallow history at all.
+	for _, leaf := range resolveLeaves[Ctx, Evt](a.machine.root, a.value) {
+		if !isDescendant(leaf, parent) {
+			continue
 		}
+		for cursor := leaf; cursor != nil; cursor = cursor.parent {
+			if cursor.parent == parent {
+				a.historyMemory[parent] = cursor.name
+				break
+			}
+		}
+		break
 	}
 	if sub, ok := extractValueAt[Ctx, Evt](a.machine.root, a.value, parent); ok {
 		a.historyDeepMemory[parent] = sub
