@@ -1,6 +1,8 @@
 package fate
 
 import (
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -111,12 +113,10 @@ func computeExitSet[Ctx any, Evt any](
 // timer that can never fire. Descending to the target's own region keeps the
 // two halves consistent.
 //
-// This is a narrower rule than SCXML's, which exits every region of the
-// parallel node and re-enters them all. That needs the matching entry-side
-// expansion (addAncestorStatesToEnter) which computeEntrySet does not
-// implement, and adding one half without the other is what produces the
-// inconsistency above. Until both land, a cross-region transition relocates
-// only the target's region and leaves the others alone.
+// This is narrower than SCXML, which exits and re-enters every region.
+// computeEntrySet uses this same domain, so a cross-region transition relocates
+// only the target's region. Adopting SCXML means widening both halves together;
+// widening one alone is what produced the inconsistency above.
 func exitDomain[Ctx any, Evt any](common, target *stateNode[Ctx, Evt]) *stateNode[Ctx, Evt] {
 	if common == nil || common.typ != NodeParallel {
 		return common
@@ -132,35 +132,63 @@ func exitDomain[Ctx any, Evt any](common, target *stateNode[Ctx, Evt]) *stateNod
 	return common
 }
 
-// computeEntrySet returns the ordered list of nodes that should be entered.
-// Order: outermost first (so entry actions run parent-then-child).
+// computeEntrySet returns the nodes to enter, outermost first.
 //
-// The entry set is the chain from (the child of LCCA that is an ancestor of
-// target) down to target, then target's initial descendants.
+// The domain is exitDomain's rather than the bare LCCA so both halves share one
+// boundary. A transition staying inside a parallel node re-enters no sibling,
+// matching the fact that none of them exited; one whose domain is above the
+// node re-enters every region, because every region exited. The bare LCCA would
+// re-enter regions the exit set deliberately left running.
 func computeEntrySet[Ctx any, Evt any](
 	source, target *stateNode[Ctx, Evt],
 	internal bool,
 ) []*stateNode[Ctx, Evt] {
-	common := lcca[Ctx, Evt](source, target, internal)
+	common := exitDomain[Ctx, Evt](lcca[Ctx, Evt](source, target, internal), target)
 
-	// Find the child of `common` that contains (or equals) `target`.
 	chain := []*stateNode[Ctx, Evt]{}
 	for cursor := target; cursor != nil && cursor != common; cursor = cursor.parent {
 		chain = append([]*stateNode[Ctx, Evt]{cursor}, chain...)
 	}
 
-	// Descend into target's initial chain.
-	cursor := target
-	for cursor.typ == NodeCompound && cursor.name != "" {
-		next, ok := cursor.children[cursor.initial]
-		if !ok {
-			break
+	entry := make([]*stateNode[Ctx, Evt], 0, len(chain))
+	for i, n := range chain {
+		entry = append(entry, n)
+		var onChain *stateNode[Ctx, Evt]
+		if i+1 < len(chain) {
+			onChain = chain[i+1]
 		}
-		chain = append(chain, next)
-		cursor = next
+		entry = append(entry, enterBelow(n, onChain)...)
 	}
+	return entry
+}
 
-	return chain
+// enterBelow returns the descendants entered with n, where onChain is the child
+// the caller's chain already names (nil when the chain ends at n). Regions are
+// visited in sorted name order so arming does not depend on map iteration.
+func enterBelow[Ctx any, Evt any](n, onChain *stateNode[Ctx, Evt]) []*stateNode[Ctx, Evt] {
+	switch n.typ {
+	case NodeParallel:
+		var out []*stateNode[Ctx, Evt]
+		for _, name := range slices.Sorted(maps.Keys(n.children)) {
+			region := n.children[name]
+			if region == onChain {
+				continue
+			}
+			out = append(out, region)
+			out = append(out, enterBelow(region, nil)...)
+		}
+		return out
+	case NodeCompound:
+		if onChain != nil || n.name == "" {
+			return nil
+		}
+		child, ok := n.children[n.initial]
+		if !ok {
+			return nil // CreateMachine rejects this config (ErrUnknownInitial)
+		}
+		return append([]*stateNode[Ctx, Evt]{child}, enterBelow(child, nil)...)
+	}
+	return nil
 }
 
 // ancestorSet returns the set of all ancestors of n, including n itself.

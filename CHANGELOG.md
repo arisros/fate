@@ -68,6 +68,18 @@ now carry names into the descriptor.
   running, leaving an armed timer that could never fire. The exit set now stops
   at the region `commitValue` actually replaces.
 
+- **A region could be re-entered with nothing armed.** `computeEntrySet` had no
+  parallel case: it built the single target-to-domain chain, so a transition
+  entering a parallel node added that node alone and entered none of its
+  regions. Their `Entry` actions never ran and their `After` timers and
+  `Invoke` calls were never armed, while `commitValue` reported every region
+  active. Leaving a parallel node and returning to it therefore produced an
+  active state whose delayed transition could no longer fire. This was masked
+  before the exit set was corrected, because the old exit set never disarmed
+  those effects on the way out. The entry set now enters every region of a
+  parallel node on the chain, keyed to the same domain the exit set uses, so a
+  transition that stays inside the node still leaves its siblings untouched.
+
 - **Shallow history under parallel regions.** `recordHistoryLocked` searched
   only the first active leaf, so a region that did not sort first recorded no
   history and fell back to its default on re-entry.
@@ -156,8 +168,9 @@ above.
 
 - **Parallel regions are not fully SCXML.** A transition whose domain is a
   parallel node relocates only the target's region; the others keep running
-  rather than exiting and re-entering. That needs the entry-side expansion
-  (`addAncestorStatesToEnter`) that `computeEntrySet` does not implement.
+  rather than exiting and re-entering. Exit and entry agree on that narrower
+  domain, so the configuration stays consistent, but SCXML would exit and
+  re-enter every region. Adopting it means widening both halves together.
 - **Parallel `OnDone` is absent.** A parallel node does not complete when all
   its regions reach a final state, and `settleFinalLocked` still reads only the
   first active leaf, so a region that does not sort first never fires its
