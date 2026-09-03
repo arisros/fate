@@ -3,6 +3,7 @@ package fate_test
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -314,4 +315,151 @@ func TestParallelRegionRecordsItsOwnShallowHistory(t *testing.T) {
 	if snap := a.Snapshot(); !snap.Matches("player.captions.on") {
 		t.Errorf("captions restored to %q, want player.captions.on: the region's history was not recorded", snap.Value.Path())
 	}
+}
+
+// pxDomainMachine reaches the shapes where the LCCA is the parallel node
+// itself. Each region owns a timer so that a state which exits while still
+// being reported active is detectable: the timer is disarmed but the value
+// still claims the state is there.
+//
+// Region names are chosen so "audio" sorts before "captions". The assertions
+// must hold for a transition sourced in either region, which is what makes
+// them independent of the ordering resolveLeaves happens to produce.
+func pxDomainMachine(t *testing.T, parallelOn map[string][]fate.TransitionConfig[pxCtx, string]) *fate.Machine[pxCtx, string] {
+	t.Helper()
+	region := func(name, initial, other string, on map[string][]fate.TransitionConfig[pxCtx, string]) fate.StateNodeConfig[pxCtx, string] {
+		return fate.StateNodeConfig[pxCtx, string]{
+			Initial: initial,
+			States: map[string]fate.StateNodeConfig[pxCtx, string]{
+				initial: {
+					Exit: []fate.Action[pxCtx, string]{pxExit(name + "." + initial)},
+					After: map[time.Duration][]fate.TransitionConfig[pxCtx, string]{
+						5 * time.Second: {{Target: other}},
+					},
+					On: on,
+				},
+				other: {},
+			},
+		}
+	}
+	m, err := fate.CreateMachine(fate.MachineConfig[pxCtx, string]{
+		ID:      "player",
+		Initial: "player",
+		States: map[string]fate.StateNodeConfig[pxCtx, string]{
+			"player": {
+				Type: fate.NodeParallel,
+				On:   parallelOn,
+				States: map[string]fate.StateNodeConfig[pxCtx, string]{
+					"audio": region("audio", "playing", "muted", map[string][]fate.TransitionConfig[pxCtx, string]{
+						"CROSS_FROM_AUDIO": {{Target: "captions.on"}},
+						"SELF_AUDIO":       {{Target: "audio"}},
+					}),
+					"captions": region("captions", "off", "on", map[string][]fate.TransitionConfig[pxCtx, string]{
+						"CROSS_FROM_CAPTIONS": {{Target: "audio.muted"}},
+					}),
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	return m
+}
+
+// assertNoOrphanedTimer is the invariant the whole exit set exists to protect:
+// a state the machine reports as active must still own its armed timer. A state
+// that exits while remaining active leaves a timer that can never fire.
+func assertNoOrphanedTimer(t *testing.T, a *fate.Actor[pxCtx, string], statePath, label string) {
+	t.Helper()
+	if !a.Snapshot().Matches(statePath) {
+		return // the state genuinely left; nothing to protect
+	}
+	for _, timer := range a.PendingTimers() {
+		if strings.HasPrefix(string(timer.ID), statePath) {
+			return
+		}
+	}
+	t.Errorf("%s: %s is reported active but its timer was disarmed; exited=%v",
+		label, statePath, a.Snapshot().Context.Exited)
+}
+
+// A cross-region target makes the LCCA the parallel node. commitValue replaces
+// only the target's region and carries the other over untouched, so only the
+// target's region may exit.
+func TestCrossRegionTargetLeavesTheSourceRegionIntact(t *testing.T) {
+	tests := []struct {
+		name       string
+		event      string
+		stayActive string
+		exited     []string
+	}{
+		{"sourced in the region that sorts second", "CROSS_FROM_CAPTIONS", "player.captions.off", []string{"audio.playing"}},
+		{"sourced in the region that sorts first", "CROSS_FROM_AUDIO", "player.audio.playing", []string{"captions.off"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			a := fate.NewActor(pxDomainMachine(t, nil))
+			if err := a.Start(context.Background()); err != nil {
+				t.Fatalf("start: %v", err)
+			}
+			if got := len(a.PendingTimers()); got != 2 {
+				t.Fatalf("PendingTimers before = %d, want 2", got)
+			}
+			if err := a.Send(context.Background(), tc.event); err != nil {
+				t.Fatalf("send %s: %v", tc.event, err)
+			}
+			if got := a.Snapshot().Context.Exited; !slices.Equal(got, tc.exited) {
+				t.Errorf("exit actions ran = %#v, want %#v", got, tc.exited)
+			}
+			assertNoOrphanedTimer(t, a, tc.stayActive, tc.name)
+		})
+	}
+}
+
+// A handler declared on the parallel node targeting one of its own descendants
+// reaches the same domain by a different route.
+func TestHandlerOnParallelNodeTargetingItsOwnDescendant(t *testing.T) {
+	a := fate.NewActor(pxDomainMachine(t, map[string][]fate.TransitionConfig[pxCtx, string]{
+		"JUMP": {{Target: "audio.muted"}},
+	}))
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if err := a.Send(context.Background(), "JUMP"); err != nil {
+		t.Fatalf("send JUMP: %v", err)
+	}
+	if got := a.Snapshot().Context.Exited; !slices.Equal(got, []string{"audio.playing"}) {
+		t.Errorf("exit actions ran = %#v, want [audio.playing]", got)
+	}
+	assertNoOrphanedTimer(t, a, "player.captions.off", "handler on parallel node")
+}
+
+// An internal transition declared on the parallel node takes lcca's
+// internal-and-descendant branch, which returns the parallel node as the
+// domain without excluding it.
+func TestInternalTransitionOnParallelNode(t *testing.T) {
+	a := fate.NewActor(pxDomainMachine(t, map[string][]fate.TransitionConfig[pxCtx, string]{
+		"INNER": {{Target: "audio.muted", Internal: true}},
+	}))
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if err := a.Send(context.Background(), "INNER"); err != nil {
+		t.Fatalf("send INNER: %v", err)
+	}
+	assertNoOrphanedTimer(t, a, "player.captions.off", "internal transition on parallel node")
+}
+
+// An external self-transition on a region also has the parallel node as its
+// LCCA.
+func TestExternalSelfTransitionOnARegion(t *testing.T) {
+	a := fate.NewActor(pxDomainMachine(t, nil))
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if err := a.Send(context.Background(), "SELF_AUDIO"); err != nil {
+		t.Fatalf("send SELF_AUDIO: %v", err)
+	}
+	assertNoOrphanedTimer(t, a, "player.captions.off", "external self-transition")
 }

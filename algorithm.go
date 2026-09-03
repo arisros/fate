@@ -66,7 +66,7 @@ func computeExitSet[Ctx any, Evt any](
 	source, target *stateNode[Ctx, Evt],
 	internal bool,
 ) []*stateNode[Ctx, Evt] {
-	common := lcca[Ctx, Evt](source, target, internal)
+	common := exitDomain[Ctx, Evt](lcca[Ctx, Evt](source, target, internal), target)
 
 	var exit []*stateNode[Ctx, Evt]
 	seen := map[*stateNode[Ctx, Evt]]bool{}
@@ -97,6 +97,39 @@ func computeExitSet[Ctx any, Evt any](
 		return strings.Join(exit[i].path, ".") < strings.Join(exit[j].path, ".")
 	})
 	return exit
+}
+
+// exitDomain narrows an LCCA that is a parallel node down to the single region
+// the transition actually relocates.
+//
+// The exit set has to agree with what commitValue does, and commitValue only
+// ever replaces the target's own path: every sibling region of a parallel node
+// on that path is carried over untouched. So when the LCCA is a parallel node,
+// treating it as the domain would exit states that are still active afterwards
+// — their Exit actions would run and their timers and invocations would be
+// disarmed while the machine still reported them active, leaving an armed
+// timer that can never fire. Descending to the target's own region keeps the
+// two halves consistent.
+//
+// This is a narrower rule than SCXML's, which exits every region of the
+// parallel node and re-enters them all. That needs the matching entry-side
+// expansion (addAncestorStatesToEnter) which computeEntrySet does not
+// implement, and adding one half without the other is what produces the
+// inconsistency above. Until both land, a cross-region transition relocates
+// only the target's region and leaves the others alone.
+func exitDomain[Ctx any, Evt any](common, target *stateNode[Ctx, Evt]) *stateNode[Ctx, Evt] {
+	if common == nil || common.typ != NodeParallel {
+		return common
+	}
+	// The child of common that contains (or is) target is the region being
+	// replaced. A transition targeting the parallel node itself has no such
+	// child, and keeps the parallel node as its domain.
+	for cursor := target; cursor != nil; cursor = cursor.parent {
+		if cursor.parent == common {
+			return cursor
+		}
+	}
+	return common
 }
 
 // computeEntrySet returns the ordered list of nodes that should be entered.
