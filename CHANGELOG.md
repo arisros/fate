@@ -32,21 +32,18 @@ now carry names into the descriptor.
 - **`Named(name, action)`** — labels an action so it appears under that name in
   a `MachineDescriptor` and in every rendered diagram.
 
-### Changed
+- **`TransitionConfig.GuardName`** — labels a guard the same way. Optional; an
+  unnamed guard still renders as `""`.
 
-- **`FireTimer`, `ResolveInvocation` and `RejectInvocation` now return `bool`**
-  reporting whether the effect was accepted: the id was armed and its owning
-  state still active. Previously a stale or unknown id was an undetectable
-  no-op. Existing call sites need no change, since a bool result may be
-  discarded in a call statement.
+### Changed
 
 - **Guards and actions are named in `Machine.Describe`.** The built-in actions
   report their kind (`assign`, `log`, `enqueue`, `raise:CANCEL`), and
-  `Setup.Action` labels what it hands out. Guards are matched back to their
-  registered names by `Setup.CreateMachine`; two names sharing one
-  implementation are left unnamed rather than resolved arbitrarily. Descriptor
-  output therefore changes for any machine that already used actions: names
-  that were `""` now carry a value.
+  `Setup.Action` labels what it hands out. Guards are named by the new
+  `TransitionConfig.GuardName`; a func value carries no identity a descriptor
+  could recover, so a guard is unnamed unless it is declared. Descriptor output
+  therefore changes for any machine that already used actions: names that were
+  `""` now carry a value.
 
 - **`Machine.findState` visits children alphabetically**, so `IsKnownState`,
   `IsTerminal` and `IsLegalTransition` cannot disagree with themselves between
@@ -58,8 +55,18 @@ now carry names into the descriptor.
   alphabetically first active leaf rather than from the transition's domain, so
   a transition fired inside one region ran another region's `Exit` actions and
   disarmed its timers and invocations, and a transition leaving the parallel
-  node exited only one region. The exit set is now every active node strictly
-  below the LCCA. The state value was always correct and is unchanged.
+  node exited only one region. The exit set is now every active node below the
+  transition's domain, and no result depends on which region sorts first. The
+  state value was always correct and is unchanged.
+
+- **A region could exit while still being reported active.** When the LCCA was
+  the parallel node itself (a cross-region target, a handler on the parallel
+  node targeting its own descendant, an external self-transition on a region, or
+  an internal transition declared on the parallel node), states were exited that
+  `commitValue` then carried over as active. Their `Exit` actions ran and their
+  timers and invocations were disarmed while the snapshot still reported them
+  running, leaving an armed timer that could never fire. The exit set now stops
+  at the region `commitValue` actually replaces.
 
 - **Shallow history under parallel regions.** `recordHistoryLocked` searched
   only the first active leaf, so a region that did not sort first recorded no
@@ -82,11 +89,33 @@ now carry names into the descriptor.
   - `fate.DiffEntry` → `diff.Entry`; `fate.SnapshotDiff` → `diff.Result`
   - Import: `github.com/arisros/fate/diff`
 
+- **`FireTimer`, `ResolveInvocation` and `RejectInvocation` return `bool`**,
+  reporting whether the effect was accepted: the id was armed and its owning
+  state still active. Previously a stale or unknown id was an undetectable
+  no-op. Call statements are unaffected, but a signature change is not source
+  compatible everywhere: a method value (`var fire func(fate.TimerID) =
+  a.FireTimer`, the adapter shape ADR-0003 encourages) and interface
+  satisfaction (`interface{ FireTimer(fate.TimerID) }`, including test doubles)
+  both stop compiling.
+
 - **`Actor.PersistDeterministic` removed.** It delegated to `Persist` and did
   nothing else, while its documentation implied `Persist` carried a weaker
   guarantee. `Persist` is the deterministic surface and always was: the
   property tests that asserted byte-stability now assert it about `Persist`
   directly. Callers should use `Persist`.
+
+### Known limitations
+
+- **Parallel regions are not fully SCXML.** A transition whose domain is a
+  parallel node relocates only the target's region; the others keep running
+  rather than exiting and re-entering. That needs the entry-side expansion
+  (`addAncestorStatesToEnter`) that `computeEntrySet` does not implement.
+- **Parallel `OnDone` is absent.** A parallel node does not complete when all
+  its regions reach a final state, and `settleFinalLocked` still reads only the
+  first active leaf, so a region that does not sort first never fires its
+  compound's `OnDone`.
+- **Exit order is depth-major**, so states from different regions interleave by
+  depth. SCXML uses reverse document order.
 
 ### Unchanged
 

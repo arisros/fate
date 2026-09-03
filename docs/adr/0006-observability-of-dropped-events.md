@@ -90,9 +90,13 @@ no `OnDone` or `OnError` mapper reports true and produces no event, because the
 invocation was still consumed. An adapter cares whether its report was taken,
 not whether the machine chose to model the outcome.
 
-Adding a result to a function that returned nothing is source-compatible: Go
-permits discarding a result in a call statement, so existing call sites are
-unaffected.
+Adding a result to a function that returned nothing is source-compatible for
+call statements, since Go permits discarding a result. It is not compatible
+everywhere: a method value (`var fire func(TimerID) = a.FireTimer`, which is the
+adapter shape this ADR's predecessor encourages) and interface satisfaction
+(`interface{ FireTimer(TimerID) }`, including test doubles) both stop compiling.
+Every in-tree caller is a statement, but this is a breaking change for
+downstreams and is recorded as one.
 
 ## Consequences
 
@@ -104,6 +108,14 @@ unaffected.
   entirely from the existing selection algorithm.
 - Adapters can distinguish a delivered effect from a late one, which makes a
   race that was previously invisible loggable.
+- `Can` and `Send` are two critical sections, so a `Can`-then-`Send` pair is not
+  atomic. That is harmless for the single-goroutine discipline the adapters
+  follow, and callers driving one actor from several goroutines must serialise
+  the pair themselves.
+- `Can` is non-mutating with respect to the actor. It is only side-effect free
+  to the extent guards are pure: the context is copied by value, so a guard that
+  writes through a slice, map, or pointer field still mutates shared state, and
+  will do so twice under a `Can`-then-`Send` pair.
 - `Can` and `Send` must keep using the same selection path. A future change that
   gives `Send` its own resolution logic would let the two disagree, which is the
   one way this decision can rot.

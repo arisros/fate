@@ -108,6 +108,12 @@ type TransitionConfig[Ctx any, Evt any] struct {
 	// consulted. A Guard is a pure predicate over context and event.
 	Guard Guard[Ctx, Evt]
 
+	// GuardName labels Guard in a [MachineDescriptor], and through it in every
+	// rendered diagram. Guard is a func value with no identity a descriptor can
+	// recover, so a guard is unnamed unless it is named here. Optional; an
+	// unnamed guard renders as "".
+	GuardName string
+
 	// Cond, if non-nil, is a structural condition over the active state
 	// configuration (see Cond / StateIn / InState). When both Guard and Cond
 	// are set, the transition is selected only if both pass. Use Cond for
@@ -126,11 +132,6 @@ type Machine[Ctx any, Evt any] struct {
 	id      string
 	context Ctx
 	root    *stateNode[Ctx, Evt]
-	// names labels guards for Describe. Populated only by
-	// Setup.CreateMachine; nil for a machine built by CreateMachine directly,
-	// which is why every lookup tolerates a nil receiver. It affects
-	// descriptor output only and never how the machine runs.
-	names *nameRegistry
 }
 
 // stateNode is the post-validation in-memory representation. It mirrors

@@ -2,6 +2,7 @@ package fate_test
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -15,6 +16,12 @@ import (
 // topology and nothing else.
 
 type dnCtx struct{ Hits int }
+
+// dnChecker exists to produce two guards that differ in behaviour but share a
+// code pointer, which is the shape that defeats pointer-based name inference.
+type dnChecker struct{ min int }
+
+func (c dnChecker) Check(dnCtx, string) bool { return c.min < 100 }
 
 func dnAssign() fate.Action[dnCtx, string] {
 	return fate.Assign(func(c dnCtx, _ string) dnCtx { c.Hits++; return c })
@@ -143,9 +150,10 @@ func setupMachine(t *testing.T, s *fate.Setup[dnCtx, string]) *fate.Machine[dnCt
 		States: map[string]fate.StateNodeConfig[dnCtx, string]{
 			"idle": {On: map[string][]fate.TransitionConfig[dnCtx, string]{
 				"GO": {{
-					Target:  "open",
-					Guard:   s.Guard("isReady"),
-					Actions: []fate.Action[dnCtx, string]{s.Action("clearForm")},
+					Target:    "open",
+					Guard:     s.Guard("isReady"),
+					GuardName: "isReady",
+					Actions:   []fate.Action[dnCtx, string]{s.Action("clearForm")},
 				}},
 			}},
 			"open": {},
@@ -191,18 +199,39 @@ func TestSetupActionStillRuns(t *testing.T) {
 	}
 }
 
-// One implementation registered under two names has no single right answer, so
-// the registry declines to guess. Reporting either name would be a coin flip
-// decided by map iteration order.
-func TestAmbiguousGuardIsLeftUnnamed(t *testing.T) {
-	shared := fate.Guard[dnCtx, string](func(dnCtx, string) bool { return true })
-	s := fate.NewSetup[dnCtx, string]().
-		WithGuard("isReady", shared).
-		WithGuard("alsoIsReady", shared).
-		WithAction("clearForm", dnAssign())
+// Guard names are declared, not inferred. An earlier version matched guards to
+// registered names by implementation pointer, which is not a per-closure
+// identity: a method value's pointer is per-method, not per-receiver, so an
+// unregistered guard sharing a code pointer with a registered one inherited its
+// name. A diagram then asserted a condition that was not on that edge, which is
+// worse than the blank it replaced, because a blank is visibly absent.
+func TestGuardNamesAreNotInferredFromImplementation(t *testing.T) {
+	a, b := dnChecker{min: 18}, dnChecker{min: 65}
+	if reflect.ValueOf(fate.Guard[dnCtx, string](a.Check)).Pointer() !=
+		reflect.ValueOf(fate.Guard[dnCtx, string](b.Check)).Pointer() {
+		t.Skip("method values no longer share a code pointer; the mislabelling shape is gone")
+	}
 
-	if got := transitionDescriptor(t, setupMachine(t, s)).Guard; got != "" {
-		t.Errorf("guard = %q, want \"\": two names share one implementation", got)
+	m, err := fate.CreateMachine(fate.MachineConfig[dnCtx, string]{
+		ID:      "names",
+		Initial: "idle",
+		States: map[string]fate.StateNodeConfig[dnCtx, string]{
+			"idle": {On: map[string][]fate.TransitionConfig[dnCtx, string]{
+				"GO":    {{Target: "open", Guard: a.Check, GuardName: "isAdult"}},
+				"OTHER": {{Target: "open", Guard: b.Check}},
+			}},
+			"open": {},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	on := m.Describe().States["idle"].On
+	if got := on["GO"][0].Guard; got != "isAdult" {
+		t.Errorf("declared guard = %q, want %q", got, "isAdult")
+	}
+	if got := on["OTHER"][0].Guard; got != "" {
+		t.Errorf("undeclared guard = %q, want \"\": it shares a code pointer with isAdult but is a different guard", got)
 	}
 }
 
@@ -232,41 +261,17 @@ func TestUnnamedGuardsFallBackToEmpty(t *testing.T) {
 		}
 	})
 
-	t.Run("guard registered in a Setup but written inline at the call site", func(t *testing.T) {
-		s := fate.NewSetup[dnCtx, string]().
-			WithGuard("isReady", func(dnCtx, string) bool { return true }).
-			WithAction("clearForm", dnAssign())
-		m, err := s.CreateMachine(fate.MachineConfig[dnCtx, string]{
-			ID:      "names",
-			Initial: "idle",
-			States: map[string]fate.StateNodeConfig[dnCtx, string]{
-				"idle": {On: map[string][]fate.TransitionConfig[dnCtx, string]{
-					// A different implementation from the registered one.
-					"GO": {{Target: "open", Guard: func(dnCtx, string) bool { return false }}},
-				}},
-				"open": {},
-			},
-		})
-		if err != nil {
-			t.Fatalf("create: %v", err)
-		}
-		if got := transitionDescriptor(t, m).Guard; got != "" {
-			t.Errorf("guard = %q, want \"\": this implementation was never registered", got)
-		}
-	})
 }
 
-// A Setup that registers a nil guard must not panic while indexing.
-func TestNilGuardRegistrationIsSkipped(t *testing.T) {
-	s := fate.NewSetup[dnCtx, string]().
-		WithGuard("isReady", nil).
-		WithAction("clearForm", dnAssign())
-	m, err := s.CreateMachine(fate.MachineConfig[dnCtx, string]{
+// A GuardName on a transition with no guard is meaningless but must not crash
+// or invent an edge condition.
+func TestGuardNameWithoutAGuardIsIgnored(t *testing.T) {
+	m, err := fate.CreateMachine(fate.MachineConfig[dnCtx, string]{
 		ID:      "names",
 		Initial: "idle",
 		States: map[string]fate.StateNodeConfig[dnCtx, string]{
 			"idle": {On: map[string][]fate.TransitionConfig[dnCtx, string]{
-				"GO": {{Target: "open", Guard: s.Guard("isReady")}},
+				"GO": {{Target: "open", GuardName: "isReady"}},
 			}},
 			"open": {},
 		},
@@ -274,8 +279,15 @@ func TestNilGuardRegistrationIsSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if got := transitionDescriptor(t, m).Guard; got != "" {
-		t.Errorf("guard = %q, want \"\"", got)
+	a := fate.NewActor(m)
+	if err := a.Start(context.Background()); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if err := a.Send(context.Background(), "GO"); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if got := a.Snapshot().Value.Path(); got != "open" {
+		t.Errorf("state = %q, want %q: a name must not act as a guard", got, "open")
 	}
 }
 
