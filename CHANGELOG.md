@@ -78,7 +78,8 @@ now carry names into the descriptor.
   of the root package:
   - `fate.RenderASCII` → `render.ASCII`; `fate.RenderOptions` → `render.Options`
   - `fate.RenderTransitions` → `render.Transitions`
-  - `fate.RenderMermaid` → `render.Mermaid`; `fate.MermaidOptions` unchanged
+  - `fate.RenderMermaid` → `render.Mermaid`; `fate.MermaidOptions` →
+    `render.MermaidOptions` (same name, new package)
   - `fate.RenderGraphJSON` → `render.GraphJSON`
   - `fate.Graph`, `fate.GraphNode`, `fate.GraphEdge` → same names in `render`
   - Import: `github.com/arisros/fate/render`
@@ -103,6 +104,53 @@ now carry names into the descriptor.
   guarantee. `Persist` is the deterministic surface and always was: the
   property tests that asserted byte-stability now assert it about `Persist`
   directly. Callers should use `Persist`.
+
+### Migrating from 0.4.0
+
+`v0.5.0` is the first tag that carries the sub-package extraction, so every
+consumer still on `v0.4.0` changes imports on upgrade. `go get -u` surfaces this
+as compile errors, not as a runtime change: nothing moved silently, and no
+behaviour depends on which import path a symbol came from.
+
+Add the imports you need,
+
+```go
+import (
+    "github.com/arisros/fate"
+    "github.com/arisros/fate/render"  // if you render
+    "github.com/arisros/fate/diff"    // if you diff snapshots
+)
+```
+
+then apply the renames:
+
+| `v0.4.0` | `v0.5.0` |
+|---|---|
+| `fate.RenderASCII` | `render.ASCII` |
+| `fate.RenderOptions` | `render.Options` |
+| `fate.RenderTransitions` | `render.Transitions` |
+| `fate.RenderMermaid` | `render.Mermaid` |
+| `fate.MermaidOptions` | `render.MermaidOptions` |
+| `fate.RenderGraphJSON` | `render.GraphJSON` |
+| `fate.Graph` / `fate.GraphNode` / `fate.GraphEdge` | `render.Graph` / `render.GraphNode` / `render.GraphEdge` |
+| `fate.DiffSnapshots` | `diff.Snapshots` |
+| `fate.SnapshotDiff` | `diff.Result` |
+| `fate.DiffEntry` | `diff.Entry` |
+| `fate.DiffKind` | `diff.Kind` |
+| `fate.DiffKindStateValue` etc. | `diff.KindStateValue` etc. |
+| `actor.PersistDeterministic()` | `actor.Persist()` |
+
+**What did not move.** The engine API is untouched: `Machine`, `Actor`,
+`Snapshot`, `ActorStatus`, `Guard`, `Cond`, `Action`, `Setup`,
+`MachineDescriptor`, `LoadDescriptor`, the node and history constants, and the
+error values all stay in `github.com/arisros/fate`. In particular `Snapshot` and
+`ActorStatus` remain in the root package despite the new `fate/snapshot`
+sub-package, which is unrelated: it is new API for writing descriptor JSON to
+disk (`snapshot.Emit`, `snapshot.EmitDescriptor`), not a relocation of anything
+that existed in `v0.4.0`.
+
+Known affected consumer: fate-studio vendors `v0.4.0` and will need the renames
+above.
 
 ### Known limitations
 
