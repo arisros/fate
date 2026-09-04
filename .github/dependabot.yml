@@ -1,0 +1,22 @@
+# Keeps the SHA-pinned actions in .github/workflows/ current. Without this,
+# pinning trades a supply-chain risk for a staleness one: a pinned digest never
+# picks up the upstream security fix that motivated the pin.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(ci)"
+
+  # Only the temporal module has dependencies. The root module is deliberately
+  # dependency-free and the "engine has zero external dependencies" CI job
+  # fails the build if that ever stops being true, so there is nothing here to
+  # update and an entry for "/" would never produce a PR.
+  - package-ecosystem: gomod
+    directory: "/temporal"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(temporal)"
