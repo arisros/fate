@@ -189,3 +189,43 @@ func TestValidator_StatesIncludesNestedChildren(t *testing.T) {
 		}
 	}
 }
+
+// Two states at the same depth may share a local name. The lookup has to pick
+// one, and it must pick the same one every run: a search that iterated the
+// children map directly would let IsKnownState, IsTerminal and
+// IsLegalTransition disagree with themselves between runs of one program.
+func TestFindStateIsDeterministicWhenNamesCollide(t *testing.T) {
+	m, err := sc.CreateMachine(sc.MachineConfig[struct{}, string]{
+		ID:      "collide",
+		Initial: "alpha",
+		States: map[string]sc.StateNodeConfig[struct{}, string]{
+			"alpha": {
+				Initial: "shared",
+				States: map[string]sc.StateNodeConfig[struct{}, string]{
+					// Reached first, because "alpha" sorts before "beta".
+					"shared": {},
+				},
+			},
+			"beta": {
+				Initial: "shared",
+				States: map[string]sc.StateNodeConfig[struct{}, string]{
+					"shared": {Type: sc.NodeFinal},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	for i := range 50 {
+		if !m.IsKnownState("shared") {
+			t.Fatalf("run %d: IsKnownState(shared) = false, want true", i)
+		}
+		// alpha.shared is atomic, beta.shared is final. A stable search always
+		// finds the one under "alpha".
+		if m.IsTerminal("shared") {
+			t.Fatalf("run %d: IsTerminal(shared) = true, want false: the search reached beta.shared", i)
+		}
+	}
+}

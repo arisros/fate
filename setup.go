@@ -78,12 +78,16 @@ func (s *Setup[Ctx, Evt]) Guard(name string) Guard[Ctx, Evt] {
 // [TransitionConfig] or a state's Entry/Exit. If no action is registered under
 // name, Action records the missing reference (so [Setup.CreateMachine] returns
 // an error) and returns a no-op action.
+//
+// The returned action carries name, so it appears under that name in a
+// [MachineDescriptor] and in every rendered diagram, without the caller
+// repeating it through [Named]. Wrapping does not change how the action runs.
 func (s *Setup[Ctx, Evt]) Action(name string) Action[Ctx, Evt] {
 	if a, ok := s.actions[name]; ok {
-		return a
+		return Named(name, a)
 	}
 	s.missing["action:"+name] = struct{}{}
-	return assignAction[Ctx, Evt]{fn: nil}
+	return Named[Ctx, Evt](name, nil)
 }
 
 // CreateMachine validates and builds the machine, first reporting any guard or
