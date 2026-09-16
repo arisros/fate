@@ -39,6 +39,12 @@ func (a assignAction[Ctx, Evt]) apply(c Ctx, e Evt, _ actionSink[Ctx, Evt]) Ctx 
 	return a.fn(c, e)
 }
 
+// ImplName reports the label this action carries in a [MachineDescriptor], and
+// through it in every rendered diagram. An assignment is an opaque closure, so
+// the label names the kind rather than the effect; wrap it in [Named] to say
+// what the assignment does.
+func (a assignAction[Ctx, Evt]) ImplName() string { return "assign" }
+
 // Raise returns an action that places an event onto the actor's internal
 // queue. The event is processed before Send returns control to the caller.
 // Equivalent to XState's `raise()`.
@@ -55,6 +61,16 @@ func (a raiseAction[Ctx, Evt]) apply(c Ctx, _ Evt, sink actionSink[Ctx, Evt]) Ct
 	return c
 }
 
+// ImplName reports the label this action carries in a [MachineDescriptor]. The
+// raised event is known statically, so the label names it: "raise:CANCEL". An
+// event whose name cannot be resolved degrades to a bare "raise".
+func (a raiseAction[Ctx, Evt]) ImplName() string {
+	if name := eventNameOf(a.evt); name != "" {
+		return "raise:" + name
+	}
+	return "raise"
+}
+
 // Log returns an action that emits a log message. The actor routes log
 // messages to its configured logger (default: discard).
 func Log[Ctx any, Evt any](msg string) Action[Ctx, Evt] {
@@ -69,6 +85,41 @@ func (a logAction[Ctx, Evt]) apply(c Ctx, _ Evt, sink actionSink[Ctx, Evt]) Ctx 
 	sink.log(a.msg)
 	return c
 }
+
+// ImplName reports the label this action carries in a [MachineDescriptor]. The
+// message is not included, because a log line is often long enough to overwhelm
+// a diagram edge.
+func (a logAction[Ctx, Evt]) ImplName() string { return "log" }
+
+// Named labels an action so it appears under that name in a
+// [MachineDescriptor], and through it in every rendered diagram. The built-in
+// actions name their kind ("assign", "raise:CANCEL", "log"), which says what an
+// action is but not what it does; Named is how a machine says the latter:
+//
+//	fate.Named("lockApplication", fate.Assign(func(c Ctx, _ Evt) Ctx {
+//	    c.Locked = true
+//	    return c
+//	}))
+//
+// Wrapping changes nothing about how the action runs. A nil action is accepted
+// and does nothing, so a name may be attached before the behaviour exists.
+func Named[Ctx any, Evt any](name string, a Action[Ctx, Evt]) Action[Ctx, Evt] {
+	return namedAction[Ctx, Evt]{name: name, inner: a}
+}
+
+type namedAction[Ctx any, Evt any] struct {
+	name  string
+	inner Action[Ctx, Evt]
+}
+
+func (a namedAction[Ctx, Evt]) apply(c Ctx, e Evt, sink actionSink[Ctx, Evt]) Ctx {
+	if a.inner == nil {
+		return c
+	}
+	return a.inner.apply(c, e, sink)
+}
+
+func (a namedAction[Ctx, Evt]) ImplName() string { return a.name }
 
 // Enqueuer is the surface inside an EnqueueActions block. It batches a series
 // of context updates, raises, and logs into one atomic application — the
@@ -124,3 +175,8 @@ func (a enqueueAction[Ctx, Evt]) apply(c Ctx, e Evt, sink actionSink[Ctx, Evt]) 
 	}
 	return enq.ctx
 }
+
+// ImplName reports the label this action carries in a [MachineDescriptor]. The
+// batch is an opaque closure, so the label names the kind; wrap it in [Named] to
+// say what the batch does.
+func (a enqueueAction[Ctx, Evt]) ImplName() string { return "enqueue" }

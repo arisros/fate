@@ -111,27 +111,48 @@ func (a *Actor[Ctx, Evt]) PendingInvocations() []PendingInvocation {
 // given id. If it is still armed (its state still active) and declares OnDone,
 // the mapped event is processed as an internal step. Resolving an unknown or
 // already-settled id is a safe no-op.
-func (a *Actor[Ctx, Evt]) ResolveInvocation(id InvokeID, output any) {
+// The reported bool is true when the invocation was still armed and its owning
+// state still active, so the outcome was accepted. It is false when the id was
+// unknown, already settled, or belongs to a state the machine has since left.
+// Note that true means accepted, not that an event was delivered: an accepted
+// invocation with no OnDone mapper settles without producing one. Adapters use
+// this to tell a delivered result from a late one; callers that do not care may
+// discard it.
+func (a *Actor[Ctx, Evt]) ResolveInvocation(id InvokeID, output any) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	b, ok := a.settleInvokeLocked(id)
-	if !ok || b.inv.OnDone == nil {
-		return
+	if !ok {
+		return false
+	}
+	if b.inv.OnDone == nil {
+		return true
 	}
 	a.deliverInvokeEventLocked(b.inv.OnDone(output))
+	return true
 }
 
 // RejectInvocation reports failure of the invocation with the given id. If it is
 // still armed and declares OnError, the mapped event is processed as an internal
 // step. Rejecting an unknown or already-settled id is a safe no-op.
-func (a *Actor[Ctx, Evt]) RejectInvocation(id InvokeID, err error) {
+//
+// The reported bool carries the same meaning as in [Actor.ResolveInvocation]:
+// true when the invocation was accepted, false when the id was unknown, already
+// settled, or owned by a state the machine has since left. An accepted
+// invocation with no OnError mapper reports true and delivers no event, which
+// is how a failure with no declared handler is silently absorbed.
+func (a *Actor[Ctx, Evt]) RejectInvocation(id InvokeID, err error) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	b, ok := a.settleInvokeLocked(id)
-	if !ok || b.inv.OnError == nil {
-		return
+	if !ok {
+		return false
+	}
+	if b.inv.OnError == nil {
+		return true
 	}
 	a.deliverInvokeEventLocked(b.inv.OnError(err))
+	return true
 }
 
 // settleInvokeLocked removes an armed invocation and confirms its state is still

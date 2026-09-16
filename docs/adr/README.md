@@ -10,6 +10,7 @@ reasoning at the time they were made.
 | [0003](./0003-scheduler-and-timer-model.md) | Clock-agnostic core and the adapter timer model | Accepted |
 | [0004](./0004-invoke-spawn-effects.md) | Invoke / spawn as effects-as-data | Accepted |
 | [0005](./0005-temporal-integration-boundary.md) | Temporal integration boundary | Accepted |
+| [0006](./0006-observability-of-dropped-events.md) | Observability of dropped events and stale effects | Accepted |
 
 Planned (to be written as the corresponding work lands):
 
