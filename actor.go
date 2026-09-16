@@ -206,7 +206,7 @@ func (a *Actor[Ctx, Evt]) runTransitionLocked(
 	evt Evt,
 ) {
 	exit := computeExitSet[Ctx, Evt](a.machine.root, a.value, source, target, t.Internal)
-	entry := computeEntrySet[Ctx, Evt](source, target, t.Internal)
+	entry := computeEntrySet[Ctx, Evt](source, target, t.Internal, a.pendingDeepSplice)
 
 	for _, n := range exit {
 		if n.typ == NodeCompound {
