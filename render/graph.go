@@ -24,7 +24,7 @@ type GraphNode struct {
 	Entry   []string `json:"entry,omitempty"`
 	Exit    []string `json:"exit,omitempty"`
 	// UIStateSchema is the JSON Schema of the state's UIState view model.
-	UIStateSchema json.RawMessage `json:"uiStateSchema,omitempty"`
+	UIStateSchema json.RawMessage `json:"ui_state_schema,omitempty"`
 }
 
 // GraphEdge is one transition. Source/Target are qualified node ids; Event is
@@ -38,7 +38,7 @@ type GraphEdge struct {
 	Guard    string         `json:"guard,omitempty"`
 	Actions  []string       `json:"actions,omitempty"`
 	Internal bool           `json:"internal,omitempty"`
-	CondMeta *fate.CondMeta `json:"condMeta,omitempty"`
+	CondMeta *fate.CondMeta `json:"cond_meta,omitempty"`
 }
 
 // Graph is the full resolved structure for one machine.

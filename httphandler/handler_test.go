@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -198,12 +199,45 @@ func TestSnapshot_UIState(t *testing.T) {
 	srv := newServer(t)
 	c := newClient()
 
-	if m := snap(t, post(t, c, srv.URL+"/reset", nil)); m["uiState"] != nil {
-		t.Fatalf("idle declares no UIState, got %v", m["uiState"])
+	if m := snap(t, post(t, c, srv.URL+"/reset", nil)); m["ui_state"] != nil {
+		t.Fatalf("idle declares no UIState, got %v", m["ui_state"])
 	}
 	m := snap(t, post(t, c, srv.URL+"/send", url.Values{"event": {"GO"}}))
-	if got, _ := json.Marshal(m["uiState"]); string(got) != `{"runs":1}` {
-		t.Fatalf("uiState: got %s want {\"runs\":1}", got)
+	if got, _ := json.Marshal(m["ui_state"]); string(got) != `{"running":{"runs":1}}` {
+		t.Fatalf("ui_state: got %s", got)
+	}
+}
+
+func TestSnapshot_UIStatePanicKeepsSessionUsable(t *testing.T) {
+	m, err := fate.CreateMachine(fate.MachineConfig[demoCtx, demoEvt]{
+		ID:      "panics",
+		Initial: "idle",
+		States: map[string]fate.StateNodeConfig[demoCtx, demoEvt]{
+			"idle": {
+				UIState: fate.UIStateOf(func(c demoCtx) int {
+					if c.Count > 0 {
+						panic("boom")
+					}
+					return 0
+				}),
+				On: map[string][]fate.TransitionConfig[demoCtx, demoEvt]{
+					"GO": {{Actions: []fate.Action[demoCtx, demoEvt]{fate.Assign(func(c demoCtx, _ demoEvt) demoCtx { c.Count++; return c })}}},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateMachine: %v", err)
+	}
+	srv := httptest.NewServer(httphandler.New(m, demoDispatch))
+	t.Cleanup(srv.Close)
+	c := newClient()
+
+	for range 2 {
+		got := snap(t, post(t, c, srv.URL+"/send", url.Values{"event": {"GO"}}))
+		if !strings.Contains(fmt.Sprint(got["ui_state_error"]), `panicked: boom`) || got["ui_state"] != nil {
+			t.Fatalf("got ui_state=%v ui_state_error=%v", got["ui_state"], got["ui_state_error"])
+		}
 	}
 }
 

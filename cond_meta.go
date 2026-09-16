@@ -1,16 +1,20 @@
 package fate
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+	"unicode"
 )
 
 // CondMeta describes, for tooling, which context fields a transition's Guard
 // checks. It never affects whether the transition fires: Guard remains the only
-// runtime predicate. Describe copies it into TransitionDescriptor so a viewer
-// can show each condition and evaluate it against a live context.
+// runtime predicate. CreateMachine validates and copies it, and Describe
+// publishes it on TransitionDescriptor so a viewer can show each condition and
+// evaluate it against a live context. It is accepted on On and OnDone
+// transitions; the descriptor has no delayed transitions to carry it on.
 type CondMeta struct {
 	Fields []CondField `json:"fields,omitempty"`
 	// Sample is an example context, as a JSON object, that passes the guard.
@@ -35,13 +39,17 @@ const (
 
 // CondField is one condition a Guard checks on the context.
 type CondField struct {
-	// Path selects a context field with a dot path rooted at "$", such as
-	// "$.score" or "$.customer.tier", resolved against the context's JSON form.
+	// Path selects a value in the context's JSON form: "$." followed by
+	// dot-separated object keys or array indexes, such as "$.customer.tier"
+	// or "$.items.0".
 	Path string `json:"path"`
 	Op   CondOp `json:"op"`
-	// Value is the operand. It is a non-empty slice for CondIn and unset for
-	// CondTruthy and CondFalsy.
-	Value any `json:"value,omitempty"`
+	// Value is the operand: any JSON value for CondEq and CondNeq (nil means
+	// null), a number for the ordering ops, a non-empty list for CondIn, and
+	// nil for CondTruthy and CondFalsy. In a machine's descriptor it holds the
+	// operand's JSON encoding; LoadDescriptor decodes it with encoding/json
+	// defaults, so numbers come back as float64.
+	Value any `json:"value"`
 	// Label replaces the default "path op value" text in a viewer.
 	Label string `json:"label,omitempty"`
 }
@@ -114,8 +122,16 @@ func (f *CondFieldBuilder) Lt(value any) CondField { return f.build(CondLt, valu
 // Lte checks that the field is numerically less than or equal to value.
 func (f *CondFieldBuilder) Lte(value any) CondField { return f.build(CondLte, value) }
 
-// In checks that the field equals one of values.
-func (f *CondFieldBuilder) In(values ...any) CondField { return f.build(CondIn, values) }
+// In checks that the field equals one of values. A single slice or array
+// argument is used as the list itself.
+func (f *CondFieldBuilder) In(values ...any) CondField {
+	if len(values) == 1 {
+		if v := reflect.ValueOf(values[0]); v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
+			return f.build(CondIn, values[0])
+		}
+	}
+	return f.build(CondIn, values)
+}
 
 // Truthy checks that the field is set to a non-zero, non-empty value.
 func (f *CondFieldBuilder) Truthy() CondField { return f.build(CondTruthy, nil) }
@@ -123,47 +139,108 @@ func (f *CondFieldBuilder) Truthy() CondField { return f.build(CondTruthy, nil) 
 // Falsy checks that the field is absent, null, zero, empty, or false.
 func (f *CondFieldBuilder) Falsy() CondField { return f.build(CondFalsy, nil) }
 
-func validateCondMeta(where string, m *CondMeta) error {
+// seal validates m and returns a copy the machine owns: operands and the sample
+// are stored as compact JSON, so later changes to the caller's CondMeta, or to
+// a descriptor handed out by Describe, cannot reach the machine.
+func (m *CondMeta) seal(where string) (*CondMeta, error) {
 	if m == nil {
-		return nil
+		return nil, nil
 	}
+	out := &CondMeta{Fields: make([]CondField, 0, len(m.Fields))}
 	for i, f := range m.Fields {
 		if !validCondPath(f.Path) {
-			return fmt.Errorf("%w: %s cond field %d has path %q, want \"$\" or \"$.a.b\"", ErrInvalidConfig, where, i, f.Path)
+			return nil, fmt.Errorf("%w: %s cond field %d has path %q, want \"$.key\" or \"$.key.0\"", ErrInvalidConfig, where, i, f.Path)
 		}
-		switch f.Op {
-		case CondEq, CondNeq, CondGt, CondGte, CondLt, CondLte, CondTruthy, CondFalsy:
-		case CondIn:
-			if v := reflect.ValueOf(f.Value); (v.Kind() != reflect.Slice && v.Kind() != reflect.Array) || v.Len() == 0 {
-				return fmt.Errorf("%w: %s cond field %q uses %q with no values", ErrInvalidConfig, where, f.Path, f.Op)
+		if err := checkOperand(f); err != nil {
+			return nil, fmt.Errorf("%w: %s cond field %q: %v", ErrInvalidConfig, where, f.Path, err)
+		}
+		if f.Value != nil {
+			raw, err := json.Marshal(f.Value)
+			if err != nil {
+				return nil, fmt.Errorf("%w: %s cond field %q value: %v", ErrInvalidConfig, where, f.Path, err)
 			}
-		default:
-			return fmt.Errorf("%w: %s cond field %q has unknown op %q", ErrInvalidConfig, where, f.Path, f.Op)
+			f.Value = json.RawMessage(raw)
 		}
-		if _, err := json.Marshal(f.Value); err != nil {
-			return fmt.Errorf("%w: %s cond field %q value: %v", ErrInvalidConfig, where, f.Path, err)
-		}
+		out.Fields = append(out.Fields, f)
 	}
 	if len(m.Sample) > 0 {
 		var obj map[string]json.RawMessage
 		if err := json.Unmarshal(m.Sample, &obj); err != nil || obj == nil {
-			return fmt.Errorf("%w: %s cond sample is not a JSON object", ErrInvalidConfig, where)
+			return nil, fmt.Errorf("%w: %s cond sample is not a JSON object", ErrInvalidConfig, where)
 		}
+		var buf bytes.Buffer
+		if err := json.Compact(&buf, m.Sample); err != nil {
+			return nil, fmt.Errorf("%w: %s cond sample: %v", ErrInvalidConfig, where, err)
+		}
+		out.Sample = buf.Bytes()
 	}
-	return nil
+	return out, nil
 }
 
-func validCondPath(p string) bool {
-	if p == "$" {
-		return true
+// clone returns a deep copy of a sealed CondMeta.
+func (m *CondMeta) clone() *CondMeta {
+	if m == nil {
+		return nil
 	}
+	out := &CondMeta{Fields: make([]CondField, len(m.Fields)), Sample: cloneRaw(m.Sample)}
+	for i, f := range m.Fields {
+		if raw, ok := f.Value.(json.RawMessage); ok {
+			f.Value = cloneRaw(raw)
+		}
+		out.Fields[i] = f
+	}
+	return out
+}
+
+func checkOperand(f CondField) error {
+	v := reflect.ValueOf(f.Value)
+	switch f.Op {
+	case CondEq, CondNeq:
+		return nil
+	case CondGt, CondGte, CondLt, CondLte:
+		if _, ok := f.Value.(json.Number); ok {
+			return nil
+		}
+		switch v.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+			reflect.Float32, reflect.Float64:
+			return nil
+		}
+		return fmt.Errorf("op %q needs a number, got %T", f.Op, f.Value)
+	case CondIn:
+		if (v.Kind() != reflect.Slice && v.Kind() != reflect.Array) || v.Len() == 0 {
+			return fmt.Errorf("op %q needs a non-empty list", f.Op)
+		}
+		if v.Kind() == reflect.Slice && v.Type().Elem().Kind() == reflect.Uint8 {
+			return fmt.Errorf("op %q got %T, which marshals as a string", f.Op, f.Value)
+		}
+		return nil
+	case CondTruthy, CondFalsy:
+		if f.Value != nil {
+			return fmt.Errorf("op %q takes no value", f.Op)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown op %q", f.Op)
+	}
+}
+
+// validCondPath accepts "$." followed by dot-separated object keys or array
+// indexes. Keys cannot contain dots, brackets, quotes, "$", "*", or spaces.
+func validCondPath(p string) bool {
 	rest, ok := strings.CutPrefix(p, "$.")
 	if !ok {
 		return false
 	}
 	for _, seg := range strings.Split(rest, ".") {
-		if seg == "" || strings.ContainsAny(seg, " \t[]") {
+		if seg == "" {
 			return false
+		}
+		for _, r := range seg {
+			if unicode.IsSpace(r) || unicode.IsControl(r) || strings.ContainsRune(`[]*$"'\`, r) {
+				return false
+			}
 		}
 	}
 	return true

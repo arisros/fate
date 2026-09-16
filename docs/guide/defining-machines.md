@@ -102,10 +102,15 @@ states it in data. It is documentation only: the transition still fires on
 },
 ```
 
-Paths are `$`-rooted dot paths into the context's JSON form. The operators are
-`Eq`, `Neq`, `Gt`, `Gte`, `Lt`, `Lte`, `In`, `Truthy`, and `Falsy`.
-`CreateMachine` rejects a malformed path, an `In` with no values, and a sample
-that is not a JSON object. `Describe` carries the metadata into the descriptor.
+A path is `$.` followed by dot-separated object keys or array indexes into the
+context's JSON form (`$.customer.tier`, `$.items.0`). The operators are `Eq`,
+`Neq`, `Gt`, `Gte`, `Lt`, `Lte` (numeric operand), `In` (a non-empty list), and
+`Truthy`, `Falsy` (no operand). `CreateMachine` rejects a malformed path, a
+mismatched operand, and a sample that is not a JSON object, then keeps its own
+copy, so later edits to the value you passed in do not reach the machine.
+`Describe` publishes it as `cond_meta` on `On` and `OnDone` transitions;
+`CondMeta` on an `After` transition is rejected, because the descriptor does not
+list delayed transitions.
 
 ## Actions
 
@@ -226,12 +231,13 @@ show while that state is active:
 },
 ```
 
-`UIStateOf` derives a JSON Schema for `ReviewView` once, and `Describe` publishes
-it as the state's `uiStateSchema`. `Machine.UIState(snapshot.Value,
-snapshot.Context)` evaluates the active configuration: each active leaf uses the
-nearest state on its path that declares a `UIState`. One contributor yields its
-view model, several (parallel regions) yield an object keyed by state path, and
-none yields nil.
+`UIStateOf` derives a JSON Schema for `ReviewView` once, following the rules
+`encoding/json` uses to marshal it, and `Describe` publishes it as the state's
+`ui_state_schema`. `Machine.UIState(snapshot.Value, snapshot.Context)` evaluates
+the active configuration and returns the view models keyed by the dot path of
+the state that declares each one: every active leaf uses the nearest state on
+its path with a `UIState`. A view model that fails to marshal or panics is
+returned as an error.
 
 ## Delayed transitions and invocations
 

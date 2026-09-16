@@ -75,7 +75,7 @@ func TestCondMeta_Describe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	want := `"condMeta":{"fields":[{"path":"$.score","op":"gte","value":60}],"sample":{"score":65}}`
+	want := `"cond_meta":{"fields":[{"path":"$.score","op":"gte","value":60}],"sample":{"score":65}}`
 	if !strings.Contains(string(b), want) {
 		t.Fatalf("descriptor: got %s, want it to contain %s", b, want)
 	}
@@ -88,11 +88,19 @@ func TestCondMeta_Validation(t *testing.T) {
 		msg  string
 	}{
 		{"path without root", sc.Gates(sc.Field("score").Eq(1)).Build(), `path "score"`},
+		{"bare root", sc.Gates(sc.Field("$").Eq(1)).Build(), `path "$"`},
 		{"empty segment", sc.Gates(sc.Field("$..score").Eq(1)).Build(), `path "$..score"`},
 		{"bracket path", sc.Gates(sc.Field("$.items[0]").Eq(1)).Build(), `path "$.items[0]"`},
+		{"wildcard", sc.Gates(sc.Field("$.items.*").Eq(1)).Build(), `path "$.items.*"`},
+		{"space", sc.Gates(sc.Field("$.a b").Eq(1)).Build(), `path "$.a b"`},
+		{"newline", sc.Gates(sc.Field("$.a\nb").Eq(1)).Build(), `path "$.a\nb"`},
 		{"unknown op", &sc.CondMeta{Fields: []sc.CondField{{Path: "$.score", Op: "like"}}}, `unknown op "like"`},
-		{"in without values", sc.Gates(sc.Field("$.status").In()).Build(), "with no values"},
-		{"in with scalar", &sc.CondMeta{Fields: []sc.CondField{{Path: "$.status", Op: sc.CondIn, Value: "open"}}}, "with no values"},
+		{"in without values", sc.Gates(sc.Field("$.status").In()).Build(), "needs a non-empty list"},
+		{"in with scalar", &sc.CondMeta{Fields: []sc.CondField{{Path: "$.status", Op: sc.CondIn, Value: "open"}}}, "needs a non-empty list"},
+		{"in with bytes", sc.Gates(sc.Field("$.status").In([]byte{1})).Build(), "marshals as a string"},
+		{"gt with string", sc.Gates(sc.Field("$.score").Gt("abc")).Build(), `needs a number, got string`},
+		{"lte with nil", sc.Gates(sc.Field("$.score").Lte(nil)).Build(), `needs a number, got <nil>`},
+		{"truthy with value", &sc.CondMeta{Fields: []sc.CondField{{Path: "$.ok", Op: sc.CondTruthy, Value: true}}}, "takes no value"},
 		{"unmarshalable value", sc.Gates(sc.Field("$.score").Eq(func() {})).Build(), "value:"},
 		{"sample not json", sc.Gates().Sample(`{score`), "not a JSON object"},
 		{"sample not object", sc.Gates().Sample(`[1]`), "not a JSON object"},
@@ -111,7 +119,7 @@ func TestCondMeta_Validation(t *testing.T) {
 	}
 }
 
-func TestCondMeta_ValidatesOnDoneAndAfter(t *testing.T) {
+func TestCondMeta_OnDoneValidatedAfterRejected(t *testing.T) {
 	bad := sc.Gates(sc.Field("nope").Eq(1)).Build()
 	_, err := sc.CreateMachine(sc.MachineConfig[gateCtx, string]{
 		ID:      "ondone",
@@ -139,7 +147,7 @@ func TestCondMeta_ValidatesOnDoneAndAfter(t *testing.T) {
 			"end": {Type: sc.NodeFinal},
 		},
 	})
-	if !errors.Is(err, sc.ErrInvalidConfig) || !strings.Contains(err.Error(), "after 1s candidate 0") {
+	if !errors.Is(err, sc.ErrInvalidConfig) || !strings.Contains(err.Error(), "after 1s candidate 0 has CondMeta") {
 		t.Fatalf("after: got %v", err)
 	}
 }
@@ -158,5 +166,81 @@ func TestCondMeta_DoesNotAffectGuard(t *testing.T) {
 	}
 	if !a.Snapshot().Matches("review") {
 		t.Fatalf("guard (score >= 60) must still block with score 0, got %s", a.Snapshot().Value.Path())
+	}
+}
+
+func TestCondMeta_AcceptedOperands(t *testing.T) {
+	meta := sc.Gates(
+		sc.Field("$.items.0").Eq(nil),
+		sc.Field("$.score").Gte(json.Number("60")),
+		sc.Field("$.score").Lt(uint8(100)),
+		sc.Field("$.tags").In([]string{"a", "b"}),
+		sc.Field("$.codes").In([2]byte{1, 2}),
+	).Build()
+	m, err := gateMachine(meta)
+	if err != nil {
+		t.Fatalf("CreateMachine: %v", err)
+	}
+	b, _ := json.Marshal(m.Describe().States["review"].On["DECIDE"][0].CondMeta)
+	want := `{"fields":[{"path":"$.items.0","op":"eq","value":null},{"path":"$.score","op":"gte","value":60},{"path":"$.score","op":"lt","value":100},{"path":"$.tags","op":"in","value":["a","b"]},{"path":"$.codes","op":"in","value":[1,2]}]}`
+	if string(b) != want {
+		t.Fatalf("got  %s\nwant %s", b, want)
+	}
+}
+
+func TestCondMeta_MachineOwnsItsCopy(t *testing.T) {
+	tags := []string{"a"}
+	meta := sc.Gates(sc.Field("$.tags").In(tags)).Sample(`{ "tags" : ["a"] }`)
+	m, err := gateMachine(meta)
+	if err != nil {
+		t.Fatalf("CreateMachine: %v", err)
+	}
+	describe := func() string {
+		b, err := json.Marshal(m.Describe().States["review"].On["DECIDE"][0].CondMeta)
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		return string(b)
+	}
+	want := `{"fields":[{"path":"$.tags","op":"in","value":["a"]}],"sample":{"tags":["a"]}}`
+	if got := describe(); got != want {
+		t.Fatalf("got  %s\nwant %s", got, want)
+	}
+
+	meta.Fields[0].Path = "NOT A PATH"
+	meta.Sample = []byte("not json")
+	tags[0] = "changed"
+	out := m.Describe().States["review"].On["DECIDE"][0].CondMeta
+	out.Fields[0].Path = "ALSO NOT"
+	out.Fields[0].Value.(json.RawMessage)[2] = 'X'
+	out.Sample[2] = 'X'
+
+	if got := describe(); got != want {
+		t.Fatalf("machine changed after edits: %s", got)
+	}
+}
+
+func TestCondMeta_LoadDescriptorRoundTrip(t *testing.T) {
+	m, err := gateMachine(sc.Gates(sc.Field("$.score").Gte(60), sc.Field("$.ok").Truthy()).Sample(`{"score":60,"ok":true}`))
+	if err != nil {
+		t.Fatalf("CreateMachine: %v", err)
+	}
+	first, err := json.Marshal(m.Describe())
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := sc.LoadDescriptor(first)
+	if err != nil {
+		t.Fatalf("LoadDescriptor: %v", err)
+	}
+	second, err := json.Marshal(loaded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Fatalf("round trip changed the descriptor:\n%s\n%s", first, second)
+	}
+	if v := loaded.States["review"].On["DECIDE"][0].CondMeta.Fields[0].Value; v != float64(60) {
+		t.Fatalf("loaded operand = %#v, want float64(60)", v)
 	}
 }

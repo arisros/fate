@@ -140,8 +140,8 @@ func Example_tooling() {
 	a := fate.NewActor(m)
 	_ = a.Start(context.Background())
 	s := a.Snapshot()
-	view, _ := m.UIState(s.Value, s.Context)
-	fmt.Println(string(view))
+	views, _ := m.UIState(s.Value, s.Context)
+	fmt.Println(string(views["pending"]))
 	// Output:
 	// {"fields":[{"path":"$.score","op":"gte","value":60}],"sample":{"score":60}}
 	// {"score":72,"passes":true}
