@@ -12,4 +12,4 @@
 - [ ] Root module is still standard-library only (no new `require` in the root `go.mod`).
 - [ ] Coverage stays at or above the 85% gate.
 - [ ] A contract-level change is recorded in an ADR under `docs/adr/`.
-- [ ] `CHANGELOG.md` updated under **Unreleased**.
+- [ ] PR title is a Conventional Commit; it becomes the changelog entry.
