@@ -2,6 +2,8 @@ package fate
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -43,6 +45,8 @@ type StateNodeConfig[Ctx any, Evt any] struct {
 	Default string
 
 	Output func(ctx Ctx) any
+
+	UIState *UIState[Ctx]
 }
 
 // TransitionConfig declares one possible transition for an event.
@@ -58,6 +62,8 @@ type TransitionConfig[Ctx any, Evt any] struct {
 	Cond Cond
 
 	Actions []Action[Ctx, Evt]
+
+	CondMeta *CondMeta
 }
 
 // Machine is an immutable, validated statechart.
@@ -83,6 +89,7 @@ type stateNode[Ctx any, Evt any] struct {
 	after        []afterEntry[Ctx, Evt]
 	invokes      []Invocation[Ctx, Evt]
 	outputFn     func(Ctx) any
+	uiState      *UIState[Ctx]
 }
 
 type afterEntry[Ctx any, Evt any] struct {
@@ -214,9 +221,13 @@ func buildNode[Ctx any, Evt any](
 		after:        buildAfterEntries(cfg.After),
 		invokes:      cfg.Invoke,
 		outputFn:     cfg.Output,
+		uiState:      cfg.UIState,
 	}
 
 	if err := validateInvocations(strings.Join(path, "."), cfg.Invoke); err != nil {
+		return nil, err
+	}
+	if err := sealNode(node, strings.Join(path, "."), cfg); err != nil {
 		return nil, err
 	}
 
@@ -278,6 +289,50 @@ func validateInvocations[Ctx any, Evt any](statePath string, invs []Invocation[C
 		seen[inv.ID] = struct{}{}
 	}
 	return nil
+}
+
+func sealNode[Ctx any, Evt any](node *stateNode[Ctx, Evt], statePath string, cfg StateNodeConfig[Ctx, Evt]) error {
+	if cfg.UIState != nil && cfg.UIState.fn == nil {
+		return fmt.Errorf("%w: state %q has a UIState not built with UIStateOf", ErrInvalidConfig, statePath)
+	}
+	for _, delay := range slices.Sorted(maps.Keys(cfg.After)) {
+		for i, t := range cfg.After[delay] {
+			if t.CondMeta != nil {
+				return fmt.Errorf("%w: state %q after %s candidate %d has CondMeta, which is only published for On and OnDone transitions", ErrInvalidConfig, statePath, delay, i)
+			}
+		}
+	}
+	if len(cfg.On) > 0 {
+		node.on = make(map[string][]TransitionConfig[Ctx, Evt], len(cfg.On))
+		for _, event := range slices.Sorted(maps.Keys(cfg.On)) {
+			ts, err := sealTransitions(fmt.Sprintf("state %q event %q", statePath, event), cfg.On[event])
+			if err != nil {
+				return err
+			}
+			node.on[event] = ts
+		}
+	}
+	ts, err := sealTransitions(fmt.Sprintf("state %q onDone", statePath), cfg.OnDone)
+	if err != nil {
+		return err
+	}
+	node.onDone = ts
+	return nil
+}
+
+func sealTransitions[Ctx any, Evt any](where string, ts []TransitionConfig[Ctx, Evt]) ([]TransitionConfig[Ctx, Evt], error) {
+	if ts == nil {
+		return nil, nil
+	}
+	out := slices.Clone(ts)
+	for i := range out {
+		meta, err := out[i].CondMeta.seal(fmt.Sprintf("%s candidate %d", where, i))
+		if err != nil {
+			return nil, err
+		}
+		out[i].CondMeta = meta
+	}
+	return out, nil
 }
 
 func validateTargets[Ctx any, Evt any](root *stateNode[Ctx, Evt]) error {
