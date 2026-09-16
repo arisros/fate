@@ -9,6 +9,14 @@ flagged explicitly under a **Breaking** heading.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-17
+
+Root package reduced to the core engine API. Visualization and diff are now
+opt-in sub-packages so adopters who don't need them avoid the code surface.
+Exit semantics under parallel regions are corrected, and guards and actions
+now carry names into the descriptor. Tooling can also describe what a guard
+checks and publish a view model per state.
+
 ### Added
 
 - **Guard metadata for tooling.** `TransitionConfig.CondMeta`, built with
@@ -25,19 +33,6 @@ flagged explicitly under a **Breaking** heading.
   models keyed by state path, and reports a marshal failure or panic as an error.
 - `httphandler.LiveSnapshot` gains `ui_state` (and `ui_state_error` when a view
   model fails).
-
-### Fixed
-
-- `httphandler` releases a session's lock even when building a snapshot panics.
-
-## [0.5.0] - 2026-08-30
-
-Root package reduced to the core engine API. Visualization and diff are now
-opt-in sub-packages so adopters who don't need them avoid the code surface.
-Exit semantics under parallel regions are corrected, and guards and actions
-now carry names into the descriptor.
-
-### Added
 
 - **`fate/httphandler` sub-package** — exposes an [Actor] as an HTTP simulator
   API (SSE `/stream`, plus `/send`, `/timer`, `/invoke`, `/reset`, `/undo`,
@@ -104,6 +99,8 @@ now carry names into the descriptor.
 - **Shallow history under parallel regions.** `recordHistoryLocked` searched
   only the first active leaf, so a region that did not sort first recorded no
   history and fell back to its default on re-entry.
+
+- `httphandler` releases a session's lock even when building a snapshot panics.
 
 ### Breaking
 
