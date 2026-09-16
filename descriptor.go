@@ -79,15 +79,18 @@ type StateNodeDescriptor struct {
 	On      map[string][]TransitionDescriptor `json:"on,omitempty"`
 	OnDone  []TransitionDescriptor            `json:"on_done,omitempty"`
 	States  map[string]StateNodeDescriptor    `json:"states,omitempty"`
+	// UIStateSchema is the JSON Schema of the state's UIState view model.
+	UIStateSchema json.RawMessage `json:"ui_state_schema,omitempty"`
 }
 
 // TransitionDescriptor is the descriptor for a single transition entry.
 // Guards / actions appear as names only.
 type TransitionDescriptor struct {
-	Target   string   `json:"target,omitempty"`
-	Internal bool     `json:"internal,omitempty"`
-	Guard    string   `json:"guard,omitempty"`
-	Actions  []string `json:"actions,omitempty"`
+	Target   string    `json:"target,omitempty"`
+	Internal bool      `json:"internal,omitempty"`
+	Guard    string    `json:"guard,omitempty"`
+	Actions  []string  `json:"actions,omitempty"`
+	CondMeta *CondMeta `json:"cond_meta,omitempty"`
 }
 
 // Describe returns a MachineDescriptor for the machine. The context is
@@ -154,6 +157,9 @@ func describeNode[Ctx any, Evt any](n *stateNode[Ctx, Evt]) StateNodeDescriptor 
 	if len(n.onDone) > 0 {
 		sd.OnDone = describeTransitions(n.onDone)
 	}
+	if n.uiState != nil {
+		sd.UIStateSchema = n.uiState.Schema()
+	}
 	if len(n.children) > 0 {
 		sd.States = map[string]StateNodeDescriptor{}
 		for name, child := range n.children {
@@ -169,6 +175,7 @@ func describeTransitions[Ctx any, Evt any](ts []TransitionConfig[Ctx, Evt]) []Tr
 		td := TransitionDescriptor{
 			Target:   t.Target,
 			Internal: t.Internal,
+			CondMeta: t.CondMeta.clone(),
 		}
 		td.Guard = t.GuardName
 		if names := describeActions(t.Actions); len(names) > 0 {

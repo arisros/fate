@@ -5,6 +5,7 @@ package render
 // state cards + edges; it does not need to re-resolve targets (done here).
 
 import (
+	"encoding/json"
 	"sort"
 
 	"github.com/arisros/fate"
@@ -22,19 +23,22 @@ type GraphNode struct {
 	History string   `json:"history,omitempty"`
 	Entry   []string `json:"entry,omitempty"`
 	Exit    []string `json:"exit,omitempty"`
+	// UIStateSchema is the JSON Schema of the state's UIState view model.
+	UIStateSchema json.RawMessage `json:"ui_state_schema,omitempty"`
 }
 
 // GraphEdge is one transition. Source/Target are qualified node ids; Event is
 // the triggering event (the studio anchors the edge to the source node's
 // matching event row, Stately-style).
 type GraphEdge struct {
-	ID       string   `json:"id"`
-	Source   string   `json:"source"`
-	Event    string   `json:"event"`
-	Target   string   `json:"target"`
-	Guard    string   `json:"guard,omitempty"`
-	Actions  []string `json:"actions,omitempty"`
-	Internal bool     `json:"internal,omitempty"`
+	ID       string         `json:"id"`
+	Source   string         `json:"source"`
+	Event    string         `json:"event"`
+	Target   string         `json:"target"`
+	Guard    string         `json:"guard,omitempty"`
+	Actions  []string       `json:"actions,omitempty"`
+	Internal bool           `json:"internal,omitempty"`
+	CondMeta *fate.CondMeta `json:"cond_meta,omitempty"`
 }
 
 // Graph is the full resolved structure for one machine.
@@ -56,15 +60,16 @@ func GraphJSON(d fate.MachineDescriptor) Graph {
 	var walk func(name string, node fate.StateNodeDescriptor, path, parentID, parentInitial string)
 	walk = func(name string, node fate.StateNodeDescriptor, path, parentID, parentInitial string) {
 		n := GraphNode{
-			ID:      nodeID(path),
-			Label:   name,
-			Path:    path,
-			Type:    node.Type,
-			Parent:  parentID,
-			Initial: name == parentInitial,
-			History: node.History,
-			Entry:   node.Entry,
-			Exit:    node.Exit,
+			ID:            nodeID(path),
+			Label:         name,
+			Path:          path,
+			Type:          node.Type,
+			Parent:        parentID,
+			Initial:       name == parentInitial,
+			History:       node.History,
+			Entry:         node.Entry,
+			Exit:          node.Exit,
+			UIStateSchema: node.UIStateSchema,
 		}
 		g.Nodes = append(g.Nodes, n)
 
@@ -105,6 +110,7 @@ func edgeFor(srcPath, event string, t fate.TransitionDescriptor, idx descriptorI
 		Guard:    t.Guard,
 		Actions:  t.Actions,
 		Internal: t.Internal,
+		CondMeta: t.CondMeta,
 	}
 }
 
