@@ -69,50 +69,86 @@ func exitDomain[Ctx any, Evt any](common, target *stateNode[Ctx, Evt]) *stateNod
 func computeEntrySet[Ctx any, Evt any](
 	source, target *stateNode[Ctx, Evt],
 	internal bool,
+	restore *deepHistorySplice[Ctx, Evt],
 ) []*stateNode[Ctx, Evt] {
 	common := exitDomain[Ctx, Evt](lcca[Ctx, Evt](source, target, internal), target)
 
-	chain := []*stateNode[Ctx, Evt]{}
+	var chain []*stateNode[Ctx, Evt]
 	for cursor := target; cursor != nil && cursor != common; cursor = cursor.parent {
 		chain = append([]*stateNode[Ctx, Evt]{cursor}, chain...)
 	}
 
-	entry := make([]*stateNode[Ctx, Evt], 0, len(chain))
-	for i, n := range chain {
-		entry = append(entry, n)
-		var onChain *stateNode[Ctx, Evt]
-		if i+1 < len(chain) {
-			onChain = chain[i+1]
-		}
-		entry = append(entry, enterBelow(n, onChain)...)
+	e := entryBuilder[Ctx, Evt]{saved: map[*stateNode[Ctx, Evt]]StateValue{}}
+	if restore != nil {
+		e.record(restore.parent, restore.subtree)
 	}
-	return entry
+	if len(chain) == 0 {
+		return e.content(target, nil)
+	}
+	return e.from(chain)
 }
 
-func enterBelow[Ctx any, Evt any](n, onChain *stateNode[Ctx, Evt]) []*stateNode[Ctx, Evt] {
+type entryBuilder[Ctx any, Evt any] struct {
+	saved map[*stateNode[Ctx, Evt]]StateValue
+}
+
+func (e entryBuilder[Ctx, Evt]) record(n *stateNode[Ctx, Evt], v StateValue) {
+	e.saved[n] = v
+	if v.IsAtomic() {
+		return
+	}
+	for name, child := range v.Children {
+		if c, ok := n.children[name]; ok {
+			e.record(c, child)
+		}
+	}
+}
+
+func (e entryBuilder[Ctx, Evt]) from(chain []*stateNode[Ctx, Evt]) []*stateNode[Ctx, Evt] {
+	return append([]*stateNode[Ctx, Evt]{chain[0]}, e.content(chain[0], chain[1:])...)
+}
+
+func (e entryBuilder[Ctx, Evt]) content(n *stateNode[Ctx, Evt], rest []*stateNode[Ctx, Evt]) []*stateNode[Ctx, Evt] {
 	switch n.typ {
 	case NodeParallel:
 		var out []*stateNode[Ctx, Evt]
 		for _, name := range slices.Sorted(maps.Keys(n.children)) {
 			region := n.children[name]
-			if region == onChain {
-				continue
+			if len(rest) > 0 && rest[0] == region {
+				out = append(out, e.from(rest)...)
+			} else {
+				out = append(out, e.from([]*stateNode[Ctx, Evt]{region})...)
 			}
-			out = append(out, region)
-			out = append(out, enterBelow(region, nil)...)
 		}
 		return out
 	case NodeCompound:
-		if onChain != nil || n.name == "" {
+		if len(rest) > 0 {
+			return e.from(rest)
+		}
+		if n.name == "" {
 			return nil
 		}
-		child, ok := n.children[n.initial]
+		child, ok := n.children[e.childToEnter(n)]
 		if !ok {
 			return nil
 		}
-		return append([]*stateNode[Ctx, Evt]{child}, enterBelow(child, nil)...)
+		return e.from([]*stateNode[Ctx, Evt]{child})
 	}
 	return nil
+}
+
+func (e entryBuilder[Ctx, Evt]) childToEnter(n *stateNode[Ctx, Evt]) string {
+	v, ok := e.saved[n]
+	if !ok {
+		return n.initial
+	}
+	if v.IsAtomic() {
+		return v.Leaf
+	}
+	for name := range v.Children {
+		return name
+	}
+	return n.initial
 }
 
 func ancestorSet[Ctx any, Evt any](n *stateNode[Ctx, Evt]) map[*stateNode[Ctx, Evt]]struct{} {
