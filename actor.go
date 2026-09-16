@@ -285,7 +285,7 @@ func (a *Actor[Ctx, Evt]) runTransitionLocked(
 	evt Evt,
 ) {
 	exit := computeExitSet[Ctx, Evt](a.machine.root, a.value, source, target, t.Internal)
-	entry := computeEntrySet[Ctx, Evt](source, target, t.Internal)
+	entry := computeEntrySet[Ctx, Evt](source, target, t.Internal, a.pendingDeepSplice)
 
 	// 1) Record history for any compound about to exit, then run exit
 	//    actions deepest first, and cancel that state's pending after-timers.
