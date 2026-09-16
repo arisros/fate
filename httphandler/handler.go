@@ -61,6 +61,10 @@ type LiveSnapshot struct {
 	ASCII       string           `json:"ascii"`
 	Timers      []timerInfo      `json:"timers,omitempty"`
 	Invocations []invokeInfo     `json:"invocations,omitempty"`
+	// UIState is the machine's view model for the active states, see
+	// fate.Machine.UIState. UIStateError is set instead when it fails.
+	UIState      map[string]json.RawMessage `json:"ui_state,omitempty"`
+	UIStateError string                     `json:"ui_state_error,omitempty"`
 }
 
 type timerInfo struct {
@@ -168,7 +172,7 @@ func (h *Handler[Ctx, Evt]) buildSnapshot(a *fate.Actor[Ctx, Evt]) LiveSnapshot 
 		invokes = append(invokes, invokeInfo{ID: string(p.ID), Src: p.Src})
 	}
 
-	return LiveSnapshot{
+	out := LiveSnapshot{
 		Path:        activePath,
 		Context:     ctxBytes,
 		Status:      snap.Status,
@@ -176,6 +180,12 @@ func (h *Handler[Ctx, Evt]) buildSnapshot(a *fate.Actor[Ctx, Evt]) LiveSnapshot 
 		Timers:      timers,
 		Invocations: invokes,
 	}
+	if ui, err := h.machine.UIState(snap.Value, snap.Context); err != nil {
+		out.UIStateError = err.Error()
+	} else {
+		out.UIState = ui
+	}
+	return out
 }
 
 func (h *Handler[Ctx, Evt]) availableEvents(a *fate.Actor[Ctx, Evt]) []string {
@@ -201,11 +211,11 @@ func (h *Handler[Ctx, Evt]) availableEvents(a *fate.Actor[Ctx, Evt]) []string {
 
 func (h *Handler[Ctx, Evt]) writeSnap(w http.ResponseWriter, s *session[Ctx, Evt]) {
 	w.Header().Set("content-type", "application/json")
-	s.mu.Lock()
-	snap := h.buildSnapshot(s.actor)
-	evts := h.availableEvents(s.actor)
-	s.mu.Unlock()
-	_ = json.NewEncoder(w).Encode(snapResponse{LiveSnapshot: snap, Events: evts})
+	var resp snapResponse
+	s.withLock(func() {
+		resp = snapResponse{LiveSnapshot: h.buildSnapshot(s.actor), Events: h.availableEvents(s.actor)}
+	})
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // ----- session / token -----
@@ -241,9 +251,8 @@ func (h *Handler[Ctx, Evt]) handleStream(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("connection", "keep-alive")
 
-	sess.mu.Lock()
-	initial := h.buildSnapshot(sess.actor)
-	sess.mu.Unlock()
+	var initial LiveSnapshot
+	sess.withLock(func() { initial = h.buildSnapshot(sess.actor) })
 	if err := writeSSE(w, initial); err != nil {
 		return
 	}
@@ -411,10 +420,12 @@ func (h *Handler[Ctx, Evt]) handleExport(w http.ResponseWriter, r *http.Request)
 
 // broadcastTo sends the current snapshot to all SSE subscribers of sess.
 func (h *Handler[Ctx, Evt]) broadcastTo(sess *session[Ctx, Evt]) {
-	sess.mu.Lock()
-	snap := h.buildSnapshot(sess.actor)
-	subs := sess.subs
-	sess.mu.Unlock()
+	var snap LiveSnapshot
+	var subs []chan LiveSnapshot
+	sess.withLock(func() {
+		snap = h.buildSnapshot(sess.actor)
+		subs = sess.subs
+	})
 	for _, ch := range subs {
 		select {
 		case ch <- snap:
@@ -469,6 +480,14 @@ type session[Ctx any, Evt any] struct {
 	history  [][]byte
 	events   []string
 	lastSeen time.Time
+}
+
+// withLock runs fn under the session mutex and releases it even if fn panics,
+// since fn may call into user code.
+func (s *session[Ctx, Evt]) withLock(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	fn()
 }
 
 func (s *session[Ctx, Evt]) touch() {

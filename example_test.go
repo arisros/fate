@@ -2,6 +2,7 @@ package fate_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -95,4 +96,53 @@ func Example_delayedTransition() {
 	// Output:
 	// off
 	// on
+}
+
+// Example_tooling annotates a guard with Gates and a state with UIStateOf, then
+// reads both the way a viewer would: the gate from the descriptor, the view
+// model from the live snapshot.
+func Example_tooling() {
+	type Ctx struct {
+		Score int `json:"score"`
+	}
+	type ReviewView struct {
+		Score  int  `json:"score"`
+		Passes bool `json:"passes"`
+	}
+
+	m, err := fate.CreateMachine(fate.MachineConfig[Ctx, string]{
+		ID:      "review",
+		Initial: "pending",
+		Context: Ctx{Score: 72},
+		States: map[string]fate.StateNodeConfig[Ctx, string]{
+			"pending": {
+				UIState: fate.UIStateOf(func(c Ctx) ReviewView {
+					return ReviewView{Score: c.Score, Passes: c.Score >= 60}
+				}),
+				On: map[string][]fate.TransitionConfig[Ctx, string]{
+					"DECIDE": {{
+						Target:   "approved",
+						Guard:    func(c Ctx, _ string) bool { return c.Score >= 60 },
+						CondMeta: fate.Gates(fate.Field("$.score").Gte(60)).Sample(`{"score":60}`),
+					}},
+				},
+			},
+			"approved": {Type: fate.NodeFinal},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	gate, _ := json.Marshal(m.Describe().States["pending"].On["DECIDE"][0].CondMeta)
+	fmt.Println(string(gate))
+
+	a := fate.NewActor(m)
+	_ = a.Start(context.Background())
+	s := a.Snapshot()
+	views, _ := m.UIState(s.Value, s.Context)
+	fmt.Println(string(views["pending"]))
+	// Output:
+	// {"fields":[{"path":"$.score","op":"gte","value":60}],"sample":{"score":60}}
+	// {"score":72,"passes":true}
 }
