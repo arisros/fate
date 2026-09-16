@@ -26,6 +26,9 @@ func (a assignAction[Ctx, Evt]) apply(c Ctx, e Evt, _ actionSink[Ctx, Evt]) Ctx 
 	return a.fn(c, e)
 }
 
+// ImplName reports the label this action carries in a [MachineDescriptor], and through it in every rendered diagram.
+func (a assignAction[Ctx, Evt]) ImplName() string { return "assign" }
+
 // Raise returns an action that places an event onto the actor's internal queue.
 func Raise[Ctx any, Evt any](evt Evt) Action[Ctx, Evt] {
 	return raiseAction[Ctx, Evt]{evt: evt}
@@ -38,6 +41,14 @@ type raiseAction[Ctx any, Evt any] struct {
 func (a raiseAction[Ctx, Evt]) apply(c Ctx, _ Evt, sink actionSink[Ctx, Evt]) Ctx {
 	sink.raise(a.evt)
 	return c
+}
+
+// ImplName reports the label this action carries in a [MachineDescriptor].
+func (a raiseAction[Ctx, Evt]) ImplName() string {
+	if name := eventNameOf(a.evt); name != "" {
+		return "raise:" + name
+	}
+	return "raise"
 }
 
 // Log returns an action that emits a log message.
@@ -53,6 +64,28 @@ func (a logAction[Ctx, Evt]) apply(c Ctx, _ Evt, sink actionSink[Ctx, Evt]) Ctx 
 	sink.log(a.msg)
 	return c
 }
+
+// ImplName reports the label this action carries in a [MachineDescriptor].
+func (a logAction[Ctx, Evt]) ImplName() string { return "log" }
+
+// Named labels an action so it appears under that name in a [MachineDescriptor], and through it in every rendered diagram.
+func Named[Ctx any, Evt any](name string, a Action[Ctx, Evt]) Action[Ctx, Evt] {
+	return namedAction[Ctx, Evt]{name: name, inner: a}
+}
+
+type namedAction[Ctx any, Evt any] struct {
+	name  string
+	inner Action[Ctx, Evt]
+}
+
+func (a namedAction[Ctx, Evt]) apply(c Ctx, e Evt, sink actionSink[Ctx, Evt]) Ctx {
+	if a.inner == nil {
+		return c
+	}
+	return a.inner.apply(c, e, sink)
+}
+
+func (a namedAction[Ctx, Evt]) ImplName() string { return a.name }
 
 // Enqueuer is the surface inside an EnqueueActions block.
 type Enqueuer[Ctx any, Evt any] struct {
@@ -102,3 +135,6 @@ func (a enqueueAction[Ctx, Evt]) apply(c Ctx, e Evt, sink actionSink[Ctx, Evt]) 
 	}
 	return enq.ctx
 }
+
+// ImplName reports the label this action carries in a [MachineDescriptor].
+func (a enqueueAction[Ctx, Evt]) ImplName() string { return "enqueue" }

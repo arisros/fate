@@ -68,25 +68,33 @@ func (a *Actor[Ctx, Evt]) PendingInvocations() []PendingInvocation {
 }
 
 // ResolveInvocation reports successful completion of the invocation with the given id.
-func (a *Actor[Ctx, Evt]) ResolveInvocation(id InvokeID, output any) {
+func (a *Actor[Ctx, Evt]) ResolveInvocation(id InvokeID, output any) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	b, ok := a.settleInvokeLocked(id)
-	if !ok || b.inv.OnDone == nil {
-		return
+	if !ok {
+		return false
+	}
+	if b.inv.OnDone == nil {
+		return true
 	}
 	a.deliverInvokeEventLocked(b.inv.OnDone(output))
+	return true
 }
 
 // RejectInvocation reports failure of the invocation with the given id.
-func (a *Actor[Ctx, Evt]) RejectInvocation(id InvokeID, err error) {
+func (a *Actor[Ctx, Evt]) RejectInvocation(id InvokeID, err error) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	b, ok := a.settleInvokeLocked(id)
-	if !ok || b.inv.OnError == nil {
-		return
+	if !ok {
+		return false
+	}
+	if b.inv.OnError == nil {
+		return true
 	}
 	a.deliverInvokeEventLocked(b.inv.OnError(err))
+	return true
 }
 
 func (a *Actor[Ctx, Evt]) settleInvokeLocked(id InvokeID) (invokeBinding[Ctx, Evt], bool) {

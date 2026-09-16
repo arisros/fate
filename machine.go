@@ -53,6 +53,8 @@ type TransitionConfig[Ctx any, Evt any] struct {
 
 	Guard Guard[Ctx, Evt]
 
+	GuardName string
+
 	Cond Cond
 
 	Actions []Action[Ctx, Evt]

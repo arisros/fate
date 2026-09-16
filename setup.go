@@ -45,10 +45,10 @@ func (s *Setup[Ctx, Evt]) Guard(name string) Guard[Ctx, Evt] {
 // Action returns the action registered under name for use in a [TransitionConfig] or a state's Entry/Exit.
 func (s *Setup[Ctx, Evt]) Action(name string) Action[Ctx, Evt] {
 	if a, ok := s.actions[name]; ok {
-		return a
+		return Named(name, a)
 	}
 	s.missing["action:"+name] = struct{}{}
-	return assignAction[Ctx, Evt]{fn: nil}
+	return Named[Ctx, Evt](name, nil)
 }
 
 // CreateMachine validates and builds the machine, first reporting any guard or action names referenced via [Setup.Guard] / [Setup.Action] that were never registered.
