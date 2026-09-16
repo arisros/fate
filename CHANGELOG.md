@@ -7,7 +7,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
-## [0.5.0] - 2026-09-17
+## [0.5.0] - 2026-09-16
 
 Root package reduced to the core engine API. Visualization and diff are now
 opt-in sub-packages so adopters who don't need them avoid the code surface.
