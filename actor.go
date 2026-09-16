@@ -186,6 +186,37 @@ func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
 	return nil
 }
 
+// Can reports whether evt would be handled by the current configuration: that
+// is, whether at least one transition selects for it once guards are evaluated
+// against the current context. It does not mutate the actor.
+//
+// Send deliberately drops an unhandled event, because in a statechart an event
+// no state cares about is not an error. Can is the companion for callers that
+// do treat it as one, and for which "the machine ignored that" must be
+// distinguishable from "the machine acted on it":
+//
+//	if !actor.Can(evt) {
+//	    return fmt.Errorf("%w: %s in %s", ErrUnhandledEvent, name, snap.Value.Path())
+//	}
+//	_ = actor.Send(ctx, evt)
+//
+// Because guards are pure by contract, the answer is exact rather than an
+// approximation, and asking costs nothing beyond the guard evaluations. Two
+// boundaries are worth knowing. An actor that is not running reports false for
+// every event, since a stopped or completed actor handles none. And Can
+// answers about transition *selection*: a selected transition whose target
+// cannot be resolved reports true here while changing no state, which is the
+// same configuration error Send absorbs.
+func (a *Actor[Ctx, Evt]) Can(evt Evt) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.status != StatusRunning {
+		return false
+	}
+	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, eventNameOf(evt))
+	return len(selections) > 0
+}
+
 // Snapshot returns the actor's current state. Safe to call concurrently.
 func (a *Actor[Ctx, Evt]) Snapshot() Snapshot[Ctx] {
 	a.mu.Lock()
@@ -364,15 +395,21 @@ func (a *Actor[Ctx, Evt]) resolveHistoryRedirect(target *stateNode[Ctx, Evt]) *s
 // a NodeHistory's History flag from Shallow to Deep (or vice versa) without
 // otherwise altering the machine still works deterministically.
 func (a *Actor[Ctx, Evt]) recordHistoryLocked(parent *stateNode[Ctx, Evt]) {
-	leaf := resolveLeaf[Ctx, Evt](a.machine.root, a.value)
-	if leaf == nil {
-		return
-	}
-	for cursor := leaf; cursor != nil; cursor = cursor.parent {
-		if cursor.parent == parent {
-			a.historyMemory[parent] = cursor.name
-			break
+	// Scan every active leaf, not just the first. Under parallel regions the
+	// first leaf alphabetically often sits in a different region from parent,
+	// and its ancestor chain never reaches parent, which would silently record
+	// no shallow history at all.
+	for _, leaf := range resolveLeaves[Ctx, Evt](a.machine.root, a.value) {
+		if !isDescendant(leaf, parent) {
+			continue
 		}
+		for cursor := leaf; cursor != nil; cursor = cursor.parent {
+			if cursor.parent == parent {
+				a.historyMemory[parent] = cursor.name
+				break
+			}
+		}
+		break
 	}
 	if sub, ok := extractValueAt[Ctx, Evt](a.machine.root, a.value, parent); ok {
 		a.historyDeepMemory[parent] = sub

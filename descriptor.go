@@ -95,10 +95,11 @@ type TransitionDescriptor struct {
 // channel) the Context field is left nil and the rest of the descriptor
 // still renders correctly.
 //
-// Action and Guard names come from each value's ImplName() method when
-// implemented, falling back to "" otherwise. Anonymous closures therefore
-// show as empty strings — callers that care should name their actions
-// (see actions.go for helpers like Named, Assign).
+// Action names come from each value's ImplName() method: the built-in actions
+// report their kind ("assign", "raise:CANCEL", "log"), and [Named] attaches a
+// caller-chosen label. Guard names come from [TransitionConfig.GuardName],
+// since a func value carries no name a descriptor could recover. Anything
+// unnamed falls back to "".
 func (m *Machine[Ctx, Evt]) Describe() MachineDescriptor {
 	d := MachineDescriptor{
 		ID:      m.id,
@@ -169,9 +170,7 @@ func describeTransitions[Ctx any, Evt any](ts []TransitionConfig[Ctx, Evt]) []Tr
 			Target:   t.Target,
 			Internal: t.Internal,
 		}
-		if t.Guard != nil {
-			td.Guard = guardName(t.Guard)
-		}
+		td.Guard = t.GuardName
 		if names := describeActions(t.Actions); len(names) > 0 {
 			td.Actions = names
 		}
@@ -199,21 +198,6 @@ func actionName[Ctx any, Evt any](a Action[Ctx, Evt]) string {
 	}
 	type named interface{ ImplName() string }
 	if n, ok := any(a).(named); ok {
-		return n.ImplName()
-	}
-	return ""
-}
-
-// guardName extracts a human-readable name for a guard. Guard is a func
-// value with no interface method; the studio descriptor surfaces empty
-// strings for anonymous guards. Callers needing named guards should wrap
-// the closure in a struct that implements ImplName().
-func guardName[Ctx any, Evt any](g Guard[Ctx, Evt]) string {
-	if g == nil {
-		return ""
-	}
-	type named interface{ ImplName() string }
-	if n, ok := any(g).(named); ok {
 		return n.ImplName()
 	}
 	return ""
