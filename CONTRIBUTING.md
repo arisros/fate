@@ -58,9 +58,20 @@ A property-test failure blocks merge.
 - Reference the relevant ADR when changing a contract-level decision; add a new
   ADR under `docs/adr/` when introducing one.
 - The CI matrix (multiple Go versions × root + temporal modules) must be green.
+- Commit subjects and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/)
+  (`feat:`, `fix:`, `feat!:` or a `BREAKING CHANGE:` footer). The release notes
+  and version bump are generated from them, so write the subject for a reader of
+  the changelog, and put migration notes for a breaking change in the footer.
 
 ## Releasing
 
-Releases are tagged `vX.Y.Z` (semver). Tagging triggers changelog assembly and
-GoReleaser. While in `v0.x`, minor versions may contain breaking changes; these
-are called out in [CHANGELOG.md](./CHANGELOG.md).
+Releases are automated with [release-please](https://github.com/googleapis/release-please).
+Every push to `main` updates an open release PR that bumps `Version` in
+`doc.go` and adds the new section to [CHANGELOG.md](./CHANGELOG.md); do not
+edit either by hand. Merging that PR tags `vX.Y.Z`, creates the GitHub release,
+and runs GoReleaser to attach the binaries. While in `v0.x`, a breaking change
+bumps the minor version.
+
+The release PR is opened by `GITHUB_TOKEN`, which does not start CI. Close and
+reopen it to run the required checks before merging. The `temporal/` module is
+excluded and still tagged by hand as `temporal/vX.Y.Z`.
