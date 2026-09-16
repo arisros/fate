@@ -72,6 +72,7 @@ edit either by hand. Merging that PR tags `vX.Y.Z`, creates the GitHub release,
 and runs GoReleaser to attach the binaries. While in `v0.x`, a breaking change
 bumps the minor version.
 
-The release PR is opened by `GITHUB_TOKEN`, which does not start CI. Close and
-reopen it to run the required checks before merging. The `temporal/` module is
-excluded and still tagged by hand as `temporal/vX.Y.Z`.
+Commits pushed with `GITHUB_TOKEN` do not start `pull_request` workflows, so the
+release workflow dispatches CI on the release PR's branch after each update;
+its checks satisfy branch protection like any other run. The `temporal/` module
+is excluded and still tagged by hand as `temporal/vX.Y.Z`.
