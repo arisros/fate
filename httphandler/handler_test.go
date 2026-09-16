@@ -60,6 +60,7 @@ func demoMachine(t *testing.T) *fate.Machine[demoCtx, demoEvt] {
 				},
 			},
 			"running": {
+				UIState: fate.UIStateOf(func(c demoCtx) runningView { return runningView{Runs: c.Count} }),
 				Invoke: []fate.Invocation[demoCtx, demoEvt]{{
 					ID:      "work",
 					Src:     "activity:work",
@@ -81,6 +82,10 @@ func demoMachine(t *testing.T) *fate.Machine[demoCtx, demoEvt] {
 		t.Fatalf("CreateMachine: %v", err)
 	}
 	return m
+}
+
+type runningView struct {
+	Runs int `json:"runs"`
 }
 
 func demoDispatch(name string) (demoEvt, error) {
@@ -186,6 +191,19 @@ func TestSend_AdvancesState(t *testing.T) {
 	}
 	if len(m["events"].([]any)) == 0 {
 		t.Fatal("expected available events at running")
+	}
+}
+
+func TestSnapshot_UIState(t *testing.T) {
+	srv := newServer(t)
+	c := newClient()
+
+	if m := snap(t, post(t, c, srv.URL+"/reset", nil)); m["uiState"] != nil {
+		t.Fatalf("idle declares no UIState, got %v", m["uiState"])
+	}
+	m := snap(t, post(t, c, srv.URL+"/send", url.Values{"event": {"GO"}}))
+	if got, _ := json.Marshal(m["uiState"]); string(got) != `{"runs":1}` {
+		t.Fatalf("uiState: got %s want {\"runs\":1}", got)
 	}
 }
 

@@ -88,6 +88,25 @@ When both a `Guard` and a `Cond` are present, the transition fires only if both
 pass. Keep guards pure: no clock, no randomness, no I/O. A guard that isn't pure
 breaks determinism (see [persistence and determinism](persistence-and-determinism.md)).
 
+### Describing a guard for tooling
+
+A guard is a function, so a viewer cannot see what it checks. `CondMeta`
+states it in data. It is documentation only: the transition still fires on
+`Guard` alone.
+
+```go
+{
+    Target:   "approved",
+    Guard:    scoreAtLeast(700),
+    CondMeta: fate.Gates(fate.Field("$.score").Gte(700)).Sample(`{"score": 700}`),
+},
+```
+
+Paths are `$`-rooted dot paths into the context's JSON form. The operators are
+`Eq`, `Neq`, `Gt`, `Gte`, `Lt`, `Lte`, `In`, `Truthy`, and `Falsy`.
+`CreateMachine` rejects a malformed path, an `In` with no values, and a sample
+that is not a JSON object. `Describe` carries the metadata into the descriptor.
+
 ## Actions
 
 Actions run as part of a transition or on entering/leaving a state. They are also
@@ -193,6 +212,26 @@ saved subtree, including nested compound and parallel configurations. `Default`
 is where it goes the first time, before any history exists. The classic use is
 "interrupt and resume": some out-of-band activity pulls the machine away, and on
 return deep history puts it back exactly where it was.
+
+## View models
+
+`UIState` gives a state a typed projection of the context for a viewer to
+show while that state is active:
+
+```go
+"review": {
+    UIState: fate.UIStateOf(func(c Ctx) ReviewView {
+        return ReviewView{Score: c.Score, Passes: c.Score >= 700}
+    }),
+},
+```
+
+`UIStateOf` derives a JSON Schema for `ReviewView` once, and `Describe` publishes
+it as the state's `uiStateSchema`. `Machine.UIState(snapshot.Value,
+snapshot.Context)` evaluates the active configuration: each active leaf uses the
+nearest state on its path that declares a `UIState`. One contributor yields its
+view model, several (parallel regions) yield an object keyed by state path, and
+none yields nil.
 
 ## Delayed transitions and invocations
 

@@ -2,6 +2,8 @@ package fate
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -89,6 +91,10 @@ type StateNodeConfig[Ctx any, Evt any] struct {
 	// result is JSON-marshaled into the snapshot's Output field. Mirrors
 	// XState's final-state output.
 	Output func(ctx Ctx) any
+
+	// UIState projects the context into a view model while this state is
+	// active. Build it with UIStateOf. See Machine.UIState.
+	UIState *UIState[Ctx]
 }
 
 // TransitionConfig declares one possible transition for an event.
@@ -117,6 +123,10 @@ type TransitionConfig[Ctx any, Evt any] struct {
 	// Actions run after exit actions and before entry actions when the
 	// transition fires. Order: declaration order.
 	Actions []Action[Ctx, Evt]
+
+	// CondMeta documents the context fields Guard checks, for tooling only.
+	// It does not change whether the transition fires. Build it with Gates.
+	CondMeta *CondMeta
 }
 
 // Machine is an immutable, validated statechart. Safe to share across
@@ -153,6 +163,7 @@ type stateNode[Ctx any, Evt any] struct {
 	// outputFn builds the machine output when this final state completes at the
 	// top level. nil unless typ == NodeFinal and an Output fn was configured.
 	outputFn func(Ctx) any
+	uiState  *UIState[Ctx]
 }
 
 // afterEntry is one delay bucket of a state's delayed transitions.
@@ -313,9 +324,13 @@ func buildNode[Ctx any, Evt any](
 		after:        buildAfterEntries(cfg.After),
 		invokes:      cfg.Invoke,
 		outputFn:     cfg.Output,
+		uiState:      cfg.UIState,
 	}
 
 	if err := validateInvocations(strings.Join(path, "."), cfg.Invoke); err != nil {
+		return nil, err
+	}
+	if err := validateNodeCondMeta(strings.Join(path, "."), cfg); err != nil {
 		return nil, err
 	}
 
@@ -380,6 +395,29 @@ func validateInvocations[Ctx any, Evt any](statePath string, invs []Invocation[C
 			return fmt.Errorf("%w: state %q has duplicate invoke ID %q", ErrInvalidConfig, statePath, inv.ID)
 		}
 		seen[inv.ID] = struct{}{}
+	}
+	return nil
+}
+
+func validateNodeCondMeta[Ctx any, Evt any](statePath string, cfg StateNodeConfig[Ctx, Evt]) error {
+	for _, event := range slices.Sorted(maps.Keys(cfg.On)) {
+		for i, t := range cfg.On[event] {
+			if err := validateCondMeta(fmt.Sprintf("state %q event %q candidate %d", statePath, event, i), t.CondMeta); err != nil {
+				return err
+			}
+		}
+	}
+	for i, t := range cfg.OnDone {
+		if err := validateCondMeta(fmt.Sprintf("state %q onDone candidate %d", statePath, i), t.CondMeta); err != nil {
+			return err
+		}
+	}
+	for _, delay := range slices.Sorted(maps.Keys(cfg.After)) {
+		for i, t := range cfg.After[delay] {
+			if err := validateCondMeta(fmt.Sprintf("state %q after %s candidate %d", statePath, delay, i), t.CondMeta); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

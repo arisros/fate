@@ -61,6 +61,10 @@ type LiveSnapshot struct {
 	ASCII       string           `json:"ascii"`
 	Timers      []timerInfo      `json:"timers,omitempty"`
 	Invocations []invokeInfo     `json:"invocations,omitempty"`
+	// UIState is the machine's view model for the active states, see
+	// fate.Machine.UIState. UIStateError is set instead when it fails.
+	UIState      json.RawMessage `json:"uiState,omitempty"`
+	UIStateError string          `json:"uiStateError,omitempty"`
 }
 
 type timerInfo struct {
@@ -168,7 +172,7 @@ func (h *Handler[Ctx, Evt]) buildSnapshot(a *fate.Actor[Ctx, Evt]) LiveSnapshot 
 		invokes = append(invokes, invokeInfo{ID: string(p.ID), Src: p.Src})
 	}
 
-	return LiveSnapshot{
+	out := LiveSnapshot{
 		Path:        activePath,
 		Context:     ctxBytes,
 		Status:      snap.Status,
@@ -176,6 +180,12 @@ func (h *Handler[Ctx, Evt]) buildSnapshot(a *fate.Actor[Ctx, Evt]) LiveSnapshot 
 		Timers:      timers,
 		Invocations: invokes,
 	}
+	if ui, err := h.machine.UIState(snap.Value, snap.Context); err != nil {
+		out.UIStateError = err.Error()
+	} else {
+		out.UIState = ui
+	}
+	return out
 }
 
 func (h *Handler[Ctx, Evt]) availableEvents(a *fate.Actor[Ctx, Evt]) []string {

@@ -9,6 +9,21 @@ flagged explicitly under a **Breaking** heading.
 
 ## [Unreleased]
 
+### Added
+
+- **Guard metadata for tooling.** `TransitionConfig.CondMeta`, built with
+  `Gates(Field("$.score").Gte(60), ...)`, documents the context fields a guard
+  checks, with an optional sample context. It never changes whether a transition
+  fires. `CreateMachine` validates paths, operators, and the sample, and
+  `TransitionDescriptor.CondMeta` / `render.GraphEdge.CondMeta` carry it out.
+- **Per-state view models.** `StateNodeConfig.UIState`, built with
+  `UIStateOf(func(Ctx) U)`, projects the context for a viewer. The JSON Schema of
+  `U` is published as `StateNodeDescriptor.UIStateSchema` /
+  `render.GraphNode.UIStateSchema`; `Machine.UIState(value, ctx)` evaluates the
+  active configuration.
+- `httphandler.LiveSnapshot` gains `uiState` (and `uiStateError` when the view
+  model fails to marshal).
+
 ## [0.5.0] - 2026-06-06
 
 Root package reduced to the core engine API. Visualization and diff are now
