@@ -1,7 +1,7 @@
 # GoReleaser configuration for the fate CLI.
-# Tagging vX.Y.Z triggers .github/workflows/release.yml, which runs goreleaser
-# to build cross-platform binaries, archives, and checksums, and publishes them
-# on the GitHub release.
+# .github/workflows/release.yml runs it after release-please tags vX.Y.Z and
+# creates the GitHub release; it adds cross-platform binaries, archives, and
+# checksums to that release and keeps release-please's notes.
 version: 2
 
 project_name: fate
@@ -33,8 +33,8 @@ checksum:
   name_template: "checksums.txt"
 
 changelog:
-  use: github
-  sort: asc
+  disable: true
 
 release:
   prerelease: auto
+  mode: keep-existing
