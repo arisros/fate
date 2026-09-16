@@ -137,9 +137,7 @@ func describeTransitions[Ctx any, Evt any](ts []TransitionConfig[Ctx, Evt]) []Tr
 			Target:   t.Target,
 			Internal: t.Internal,
 		}
-		if t.Guard != nil {
-			td.Guard = guardName(t.Guard)
-		}
+		td.Guard = t.GuardName
 		if names := describeActions(t.Actions); len(names) > 0 {
 			td.Actions = names
 		}
@@ -165,17 +163,6 @@ func actionName[Ctx any, Evt any](a Action[Ctx, Evt]) string {
 	}
 	type named interface{ ImplName() string }
 	if n, ok := any(a).(named); ok {
-		return n.ImplName()
-	}
-	return ""
-}
-
-func guardName[Ctx any, Evt any](g Guard[Ctx, Evt]) string {
-	if g == nil {
-		return ""
-	}
-	type named interface{ ImplName() string }
-	if n, ok := any(g).(named); ok {
 		return n.ImplName()
 	}
 	return ""

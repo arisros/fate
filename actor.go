@@ -137,6 +137,17 @@ func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
 	return nil
 }
 
+// Can reports whether evt would be handled by the current configuration: that is, whether at least one transition selects for it once guards are evaluated against the current context.
+func (a *Actor[Ctx, Evt]) Can(evt Evt) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.status != StatusRunning {
+		return false
+	}
+	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, eventNameOf(evt))
+	return len(selections) > 0
+}
+
 // Snapshot returns the actor's current state.
 func (a *Actor[Ctx, Evt]) Snapshot() Snapshot[Ctx] {
 	a.mu.Lock()
@@ -260,15 +271,18 @@ func (a *Actor[Ctx, Evt]) resolveHistoryRedirect(target *stateNode[Ctx, Evt]) *s
 }
 
 func (a *Actor[Ctx, Evt]) recordHistoryLocked(parent *stateNode[Ctx, Evt]) {
-	leaf := resolveLeaf[Ctx, Evt](a.machine.root, a.value)
-	if leaf == nil {
-		return
-	}
-	for cursor := leaf; cursor != nil; cursor = cursor.parent {
-		if cursor.parent == parent {
-			a.historyMemory[parent] = cursor.name
-			break
+	// Every leaf: under parallel regions the first may not be under parent.
+	for _, leaf := range resolveLeaves[Ctx, Evt](a.machine.root, a.value) {
+		if !isDescendant(leaf, parent) {
+			continue
 		}
+		for cursor := leaf; cursor != nil; cursor = cursor.parent {
+			if cursor.parent == parent {
+				a.historyMemory[parent] = cursor.name
+				break
+			}
+		}
+		break
 	}
 	if sub, ok := extractValueAt[Ctx, Evt](a.machine.root, a.value, parent); ok {
 		a.historyDeepMemory[parent] = sub

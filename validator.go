@@ -43,8 +43,13 @@ func (m *Machine[Ctx, Evt]) findState(name string) *stateNode[Ctx, Evt] {
 		if n.name == name {
 			return n
 		}
-		for _, child := range n.children {
-			queue = append(queue, child)
+		childNames := make([]string, 0, len(n.children))
+		for childName := range n.children {
+			childNames = append(childNames, childName)
+		}
+		sortStrings(childNames)
+		for _, childName := range childNames {
+			queue = append(queue, n.children[childName])
 		}
 	}
 	return nil

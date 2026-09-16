@@ -39,14 +39,15 @@ func (a *Actor[Ctx, Evt]) PendingTimers() []PendingTimer {
 }
 
 // FireTimer fires the armed delayed transition with the given id.
-func (a *Actor[Ctx, Evt]) FireTimer(id TimerID) {
+func (a *Actor[Ctx, Evt]) FireTimer(id TimerID) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.fireTimerLocked(id)
+	fired := a.fireTimerLocked(id)
 	a.drainQueueLocked()
 	var zeroEvt Evt
 	a.settleFinalLocked(zeroEvt)
 	a.notifyLocked()
+	return fired
 }
 
 func (a *Actor[Ctx, Evt]) armAfterLocked(n *stateNode[Ctx, Evt]) {
@@ -67,22 +68,23 @@ func (a *Actor[Ctx, Evt]) cancelAllAfterLocked() {
 	a.armed = map[TimerID]afterBinding[Ctx, Evt]{}
 }
 
-func (a *Actor[Ctx, Evt]) fireTimerLocked(id TimerID) {
+func (a *Actor[Ctx, Evt]) fireTimerLocked(id TimerID) bool {
 	if a.status != StatusRunning {
-		return
+		return false
 	}
 	binding, ok := a.armed[id]
 	if !ok {
-		return
+		return false
 	}
 	delete(a.armed, id)
 	// A late timer callback can race an exit.
 	if _, active := extractValueAt[Ctx, Evt](a.machine.root, a.value, binding.node); !active {
-		return
+		return false
 	}
 
 	var zeroEvt Evt
 	a.handleAfterLocked(binding.node, binding.entry, zeroEvt)
+	return true
 }
 
 func (a *Actor[Ctx, Evt]) handleAfterLocked(source *stateNode[Ctx, Evt], ae afterEntry[Ctx, Evt], evt Evt) {

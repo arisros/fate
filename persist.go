@@ -3,7 +3,6 @@ package fate
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -152,24 +151,4 @@ func lookupByPath[Ctx any, Evt any](root *stateNode[Ctx, Evt], path string) *sta
 		cursor = next
 	}
 	return cursor
-}
-
-// PersistDeterministic returns a JSON snapshot with sorted map keys, matching the ADR-007 determinism requirement: identical actor state must produce byte-identical Persist output across runs.
-func (a *Actor[Ctx, Evt]) PersistDeterministic() ([]byte, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	p := a.persistedShapeLocked()
-	if len(p.History) > 0 {
-		_ = sortedKeys(p.History)
-	}
-	return json.Marshal(p)
-}
-
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
