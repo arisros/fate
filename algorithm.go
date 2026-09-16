@@ -9,10 +9,8 @@ import (
 
 // SCXML transition algorithms.
 //
-// Adapted from the W3C SCXML spec and XState v5's `stateUtils.ts`. Only the
-// pieces relevant to compound-hierarchy + atomic states land in P4; the
-// parallel-region pieces (computeEntrySet for parallel ancestors, etc.)
-// extend these in P5.
+// Adapted from the W3C SCXML spec and XState v5's `stateUtils.ts`. Parallel
+// regions are handled by exitDomain and computeEntrySet below.
 //
 // Vocabulary:
 //   - LCCA  (Least Common Compound Ancestor): the deepest compound state
@@ -132,63 +130,114 @@ func exitDomain[Ctx any, Evt any](common, target *stateNode[Ctx, Evt]) *stateNod
 	return common
 }
 
-// computeEntrySet returns the nodes to enter, outermost first.
+// computeEntrySet returns the nodes to enter, outermost first, in document
+// order: a parallel node's regions are entered in sorted name order, with the
+// target's region in its sorted place.
 //
 // The domain is exitDomain's rather than the bare LCCA so both halves share one
 // boundary. A transition staying inside a parallel node re-enters no sibling,
 // matching the fact that none of them exited; one whose domain is above the
 // node re-enters every region, because every region exited. The bare LCCA would
 // re-enter regions the exit set deliberately left running.
+//
+// When the domain is the target itself (an internal transition targeting its
+// own source), its content exited, so it is re-entered from its initial states.
+//
+// restore, when set, is a deep-history subtree about to be spliced in below its
+// parent: states under that parent are entered as the subtree records them
+// rather than by their initial children, so the entry set matches the value
+// the transition commits.
 func computeEntrySet[Ctx any, Evt any](
 	source, target *stateNode[Ctx, Evt],
 	internal bool,
+	restore *deepHistorySplice[Ctx, Evt],
 ) []*stateNode[Ctx, Evt] {
 	common := exitDomain[Ctx, Evt](lcca[Ctx, Evt](source, target, internal), target)
 
-	chain := []*stateNode[Ctx, Evt]{}
+	var chain []*stateNode[Ctx, Evt]
 	for cursor := target; cursor != nil && cursor != common; cursor = cursor.parent {
 		chain = append([]*stateNode[Ctx, Evt]{cursor}, chain...)
 	}
 
-	entry := make([]*stateNode[Ctx, Evt], 0, len(chain))
-	for i, n := range chain {
-		entry = append(entry, n)
-		var onChain *stateNode[Ctx, Evt]
-		if i+1 < len(chain) {
-			onChain = chain[i+1]
-		}
-		entry = append(entry, enterBelow(n, onChain)...)
+	e := entryBuilder[Ctx, Evt]{saved: map[*stateNode[Ctx, Evt]]StateValue{}}
+	if restore != nil {
+		e.record(restore.parent, restore.subtree)
 	}
-	return entry
+	if len(chain) == 0 {
+		return e.content(target, nil)
+	}
+	return e.from(chain)
 }
 
-// enterBelow returns the descendants entered with n, where onChain is the child
-// the caller's chain already names (nil when the chain ends at n). Regions are
-// visited in sorted name order so arming does not depend on map iteration.
-func enterBelow[Ctx any, Evt any](n, onChain *stateNode[Ctx, Evt]) []*stateNode[Ctx, Evt] {
+// entryBuilder expands an entry chain into every node it enters. saved maps a
+// node to the value recording which of its children to enter, for a
+// deep-history restore.
+type entryBuilder[Ctx any, Evt any] struct {
+	saved map[*stateNode[Ctx, Evt]]StateValue
+}
+
+func (e entryBuilder[Ctx, Evt]) record(n *stateNode[Ctx, Evt], v StateValue) {
+	e.saved[n] = v
+	if v.IsAtomic() {
+		return
+	}
+	for name, child := range v.Children {
+		if c, ok := n.children[name]; ok {
+			e.record(c, child)
+		}
+	}
+}
+
+// from enters chain[0] and everything below it, following the rest of the
+// chain where it names a child.
+func (e entryBuilder[Ctx, Evt]) from(chain []*stateNode[Ctx, Evt]) []*stateNode[Ctx, Evt] {
+	return append([]*stateNode[Ctx, Evt]{chain[0]}, e.content(chain[0], chain[1:])...)
+}
+
+// content returns the descendants entered with n.
+func (e entryBuilder[Ctx, Evt]) content(n *stateNode[Ctx, Evt], rest []*stateNode[Ctx, Evt]) []*stateNode[Ctx, Evt] {
 	switch n.typ {
 	case NodeParallel:
 		var out []*stateNode[Ctx, Evt]
 		for _, name := range slices.Sorted(maps.Keys(n.children)) {
 			region := n.children[name]
-			if region == onChain {
-				continue
+			if len(rest) > 0 && rest[0] == region {
+				out = append(out, e.from(rest)...)
+			} else {
+				out = append(out, e.from([]*stateNode[Ctx, Evt]{region})...)
 			}
-			out = append(out, region)
-			out = append(out, enterBelow(region, nil)...)
 		}
 		return out
 	case NodeCompound:
-		if onChain != nil || n.name == "" {
+		if len(rest) > 0 {
+			return e.from(rest)
+		}
+		if n.name == "" {
 			return nil
 		}
-		child, ok := n.children[n.initial]
+		child, ok := n.children[e.childToEnter(n)]
 		if !ok {
 			return nil // CreateMachine rejects this config (ErrUnknownInitial)
 		}
-		return append([]*stateNode[Ctx, Evt]{child}, enterBelow(child, nil)...)
+		return e.from([]*stateNode[Ctx, Evt]{child})
 	}
 	return nil
+}
+
+// childToEnter names the child of compound n to enter: the one a pending
+// deep-history restore recorded, else the initial child.
+func (e entryBuilder[Ctx, Evt]) childToEnter(n *stateNode[Ctx, Evt]) string {
+	v, ok := e.saved[n]
+	if !ok {
+		return n.initial
+	}
+	if v.IsAtomic() {
+		return v.Leaf
+	}
+	for name := range v.Children {
+		return name
+	}
+	return n.initial
 }
 
 // ancestorSet returns the set of all ancestors of n, including n itself.
