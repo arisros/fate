@@ -162,11 +162,11 @@ func TestProperty_Determinism(t *testing.T) {
 		ops := genOps(rand.New(rand.NewSource(seed)), 40)
 		a1 := runOps(t, ops)
 		a2 := runOps(t, ops)
-		b1, err := a1.PersistDeterministic()
+		b1, err := a1.Persist()
 		if err != nil {
 			t.Fatalf("seed %d: persist: %v", seed, err)
 		}
-		b2, err := a2.PersistDeterministic()
+		b2, err := a2.Persist()
 		if err != nil {
 			t.Fatalf("seed %d: persist: %v", seed, err)
 		}
@@ -188,7 +188,7 @@ func TestProperty_PersistRoundTripTransparent(t *testing.T) {
 		for _, o := range suffix {
 			applyOp(a, o)
 		}
-		want, err := a.PersistDeterministic()
+		want, err := a.Persist()
 		if err != nil {
 			t.Fatalf("seed %d: persist A: %v", seed, err)
 		}
@@ -206,7 +206,7 @@ func TestProperty_PersistRoundTripTransparent(t *testing.T) {
 		for _, o := range suffix {
 			applyOp(restored, o)
 		}
-		got, err := restored.PersistDeterministic()
+		got, err := restored.Persist()
 		if err != nil {
 			t.Fatalf("seed %d: persist B final: %v", seed, err)
 		}
@@ -223,8 +223,8 @@ func TestProperty_PersistStable(t *testing.T) {
 	for seed := int64(0); seed < 100; seed++ {
 		ops := genOps(rand.New(rand.NewSource(seed+5000)), 25)
 		a := runOps(t, ops)
-		b1, _ := a.PersistDeterministic()
-		b2, _ := a.PersistDeterministic()
+		b1, _ := a.Persist()
+		b2, _ := a.Persist()
 		if !bytes.Equal(b1, b2) {
 			t.Fatalf("seed %d: persist not stable across calls", seed)
 		}

@@ -1,5 +1,0 @@
-Machine: pipeline (initial: ingest)
-done  [final]
-ingest  (initial)
-transform
-validate
