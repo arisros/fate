@@ -9,6 +9,19 @@ flagged explicitly under a **Breaking** heading.
 
 ## [Unreleased]
 
+### Fixed
+
+- An internal transition that targets its own source re-enters its initial
+  states, running their Entry actions and arming their timers and invocations.
+  In 0.5.0 it entered nothing while the value still reported those states
+  active, including every region of a parallel node.
+- Restoring deep history into a parallel node enters the saved states. In 0.5.0
+  it ran the initial states' Entry actions and armed their timers and
+  invocations, then reported the saved states active.
+- A parallel node's regions are entered in sorted name order, with the target's
+  region in its place rather than last, so Entry actions and effect arming
+  follow document order.
+
 ## [0.5.0] - 2026-09-17
 
 Root package reduced to the core engine API. Visualization and diff are now
