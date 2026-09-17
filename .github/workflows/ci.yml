@@ -117,3 +117,28 @@ jobs:
           version: v2.10.1
           working-directory: ${{ matrix.module }}
           args: --config=${{ github.workspace }}/.golangci.yml
+
+  site:
+    name: build the documentation site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: '22'
+      - name: install
+        working-directory: docs
+        run: npm install --no-audit --no-fund
+      - name: build
+        # VitePress fails the build on dead relative links, so this also
+        # catches cross-references broken by a doc rename.
+        working-directory: docs
+        run: npm run build
+      - name: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: site
+          path: docs/.vitepress/dist
+          retention-days: 7
