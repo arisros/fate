@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.5.1](https://github.com/arisros/fate/compare/v0.5.0...v0.5.1) (2026-09-17)
+
+
+### Fixed
+
+* enter what the transition commits for self-targets and deep history ([#15](https://github.com/arisros/fate/issues/15)) ([6cb9276](https://github.com/arisros/fate/commit/6cb927630da107e2bff07ba3e2c947a2bd639a56))
+
 ## [0.5.0] - 2026-09-16
 
 Root package reduced to the core engine API. Visualization and diff are now
