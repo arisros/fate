@@ -1,36 +1,56 @@
 # fate documentation
 
-fate is a statechart engine for Go. These pages explain the ideas behind it and
-how to use it well.
+These pages are the source for the site at
+**[fate.arisjirat.com](https://fate.arisjirat.com)**, and are readable as-is on
+GitHub. For a first machine in a few lines, start with
+[getting started](guide/getting-started.md).
 
-If you just want to get something running, the [README quickstart](../README.md)
-is the fastest path. Come back here when you want to understand *why* the API is
-shaped the way it is — especially before driving machines in a durable runtime
-like Temporal.
+## Guide
 
-## Guides
-
-- [Concepts](concepts.md) — what a statechart is, and the one idea that shapes
-  the whole library: the engine computes state, adapters perform effects.
+- [Getting started](guide/getting-started.md) — install, a first machine, and
+  the shape of the API.
 - [Defining machines](guide/defining-machines.md) — states, transitions, guards,
   actions, hierarchy, parallel regions, and history.
+- [Effects and adapters](guide/effects-and-adapters.md) — delayed transitions
+  and invocations as data, and how an adapter drives them.
 - [Persistence and determinism](guide/persistence-and-determinism.md) — how an
-  actor serialises to JSON, what "deterministic" buys you, and the rules that
-  keep it that way.
-- [Effects and adapters](guide/effects-and-adapters.md) — delayed transitions and
-  invocations as data, and how an adapter drives them.
+  actor serialises to JSON, and the rules that keep replay exact.
 - [Temporal](guide/temporal.md) — running a machine inside a Temporal workflow.
 
 ## Reference
 
-- Full API reference on [pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate).
-- [Architecture Decision Records](adr/) — the significant design choices and the
-  reasoning behind them, in the order they were made.
+- [Concepts](concepts.md) — what a statechart is, and the idea that shapes the
+  whole library: the engine computes state, adapters perform effects.
+- [The fate CLI](cli.md) — rendering, inspecting, and diffing machines from the
+  command line.
+- [Versioning and deprecation](versioning.md) — what a version number promises
+  and how APIs are retired.
+- [Architecture Decision Records](adr/) — the significant design choices, in the
+  order they were made.
+- [pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate) — per-symbol API
+  reference.
 
 ## The studio
 
 The visual chart viewer and live simulator is a separate project,
-[fate-studio](https://github.com/arisros/fate-studio). It is kept out of this
-repository on purpose: the engine has no dependencies, and the studio needs a web
-server. The engine ships a small CLI (`cmd/fate`) for rendering and diffing
-machines from JSON on the command line.
+[fate-studio](https://github.com/arisros/fate-studio), hosted at
+[fate-studio.arisjirat.com](https://fate-studio.arisjirat.com). It is kept out of
+this repository on purpose: the engine has no dependencies, and the studio needs
+a web server.
+
+## Building this site
+
+The site is [VitePress](https://vitepress.dev). Everything it needs lives in
+this directory.
+
+```sh
+make site-dev     # local dev server with hot reload
+make site         # production build into docs/.vitepress/dist
+make site-image   # container image, tagged with the released version
+```
+
+The version shown in the navigation and footer is read at build time from
+`.release-please-manifest.json`, so it follows releases automatically.
+[`Dockerfile`](Dockerfile) builds the site and [`server/`](server) serves it:
+a standard-library-only static server that resolves clean URLs, redirects the
+paths the previous site published, and answers `/healthz`.
