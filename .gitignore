@@ -8,3 +8,7 @@ coverage.*
 .idea/
 .vscode/
 *.swp
+
+node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
