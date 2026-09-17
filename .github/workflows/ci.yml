@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The release workflow dispatches CI for the release PR, which pull_request
+  # never sees because GITHUB_TOKEN pushes its commits.
+  workflow_dispatch:
 
 permissions:
   contents: read
