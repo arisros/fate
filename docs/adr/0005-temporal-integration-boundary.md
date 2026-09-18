@@ -17,8 +17,8 @@ boundary between the two.
 The Temporal integration is the module `github.com/arisros/fate/temporal`, with
 its own `go.mod`. The root engine module imports nothing outside the standard
 library; only adopters who host a machine in a workflow pull in the Temporal
-SDK. During development the module resolves the engine via a `replace`
-directive; a release pins a published engine tag.
+SDK. The module pins a published engine tag rather than a `replace` directive,
+so CI exercises it against the engine adopters get.
 
 ### A driver, not a hook
 
