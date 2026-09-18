@@ -3,15 +3,15 @@
 // engine itself stays dependency-free, and only adopters who drive machines
 // inside Temporal workflows pull in the Temporal SDK.
 //
-// During local development this module resolves the engine via the replace
-// directive below. Released builds pin a published github.com/arisros/fate tag
-// and the replace directive is dropped.
+// It requires a published github.com/arisros/fate tag, so CI tests it against
+// the engine adopters actually get. To develop both together, add a temporary
+// local replace and drop it before committing.
 module github.com/arisros/fate/temporal
 
 go 1.25.4
 
 require (
-	github.com/arisros/fate v0.4.0
+	github.com/arisros/fate v0.5.1
 	github.com/stretchr/testify v1.12.1
 	go.temporal.io/sdk v1.48.0
 )
@@ -39,5 +39,3 @@ require (
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace github.com/arisros/fate => ../
