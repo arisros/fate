@@ -28,6 +28,12 @@ type MachineConfig[Ctx any, Evt any] struct {
 	// States is the map of immediate child state nodes. Keys are local state
 	// names (e.g. "idle"); values describe each node.
 	States map[string]StateNodeConfig[Ctx, Evt]
+
+	// EventName, if set, maps an event to the name its transitions are keyed
+	// by in On, replacing the default rules (see Actor.Send). Set it when Evt
+	// is a type the engine cannot name, such as an int enum. An empty result
+	// is an [ErrUnnamedEvent].
+	EventName func(Evt) string
 }
 
 // StateNodeConfig declares one state node within a machine. State nodes
@@ -139,9 +145,10 @@ type TransitionConfig[Ctx any, Evt any] struct {
 // goroutines and across multiple Actor instances. Construct via
 // CreateMachine; never mutate.
 type Machine[Ctx any, Evt any] struct {
-	id      string
-	context Ctx
-	root    *stateNode[Ctx, Evt]
+	id         string
+	context    Ctx
+	root       *stateNode[Ctx, Evt]
+	eventNamer func(Evt) string
 }
 
 // stateNode is the post-validation in-memory representation. It mirrors
@@ -281,7 +288,22 @@ func CreateMachine[Ctx any, Evt any](cfg MachineConfig[Ctx, Evt]) (*Machine[Ctx,
 		return nil, err
 	}
 
-	return &Machine[Ctx, Evt]{id: cfg.ID, context: cfg.Context, root: root}, nil
+	return &Machine[Ctx, Evt]{id: cfg.ID, context: cfg.Context, root: root, eventNamer: cfg.EventName}, nil
+}
+
+// eventName resolves the name evt dispatches on, through the machine's
+// EventName when set and the default rules otherwise.
+func (m *Machine[Ctx, Evt]) eventName(evt Evt) (string, error) {
+	if m.eventNamer != nil {
+		if name := m.eventNamer(evt); name != "" {
+			return name, nil
+		}
+		return "", fmt.Errorf("%w: EventName returned \"\" for %T(%v)", ErrUnnamedEvent, evt, evt)
+	}
+	if name, ok := eventNameOf(evt); ok {
+		return name, nil
+	}
+	return "", fmt.Errorf("%w: %T has no EventName method and the machine sets no EventName", ErrUnnamedEvent, evt)
 }
 
 // buildNode recursively constructs the post-validation node tree.

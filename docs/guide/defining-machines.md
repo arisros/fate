@@ -38,13 +38,27 @@ order:
 
 1. if the event is a string, the string itself;
 2. if it has an `EventName() string` method, that;
-3. otherwise the concrete type name via reflection.
+3. if its type is a named string (`type Kind string`), its value;
+4. if it is a struct, the type name via reflection.
 
 For typed events, give them an `EventName` so matching never pays for reflection
 and the wire name is explicit:
 
 ```go
 func (Submit) EventName() string { return "Submit" }
+```
+
+Any other kind, such as an `int` enum, has no name fate can derive, and `Send`
+returns `ErrUnnamedEvent`. Give it an `EventName` method, or name events for the
+whole machine with `MachineConfig.EventName`, which replaces the rules above:
+
+```go
+type transition int64
+
+fate.MachineConfig[Ctx, transition]{
+	EventName: func(t transition) string { return transitionNames[t] },
+	// ...
+}
 ```
 
 The keys in an `On` map are these names.

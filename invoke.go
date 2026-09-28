@@ -175,7 +175,9 @@ func (a *Actor[Ctx, Evt]) settleInvokeLocked(id InvokeID) (invokeBinding[Ctx, Ev
 // deliverInvokeEventLocked processes an invocation outcome event exactly like a
 // sent event: handle, drain raised events, settle finals, notify observers.
 func (a *Actor[Ctx, Evt]) deliverInvokeEventLocked(evt Evt) {
-	a.handleEventLocked(evt)
+	if err := a.handleEventLocked(evt); err != nil && a.logger != nil {
+		a.logger("statechart: invocation event dropped: " + err.Error())
+	}
 	a.drainQueueLocked()
 	a.settleFinalLocked(evt)
 	a.notifyLocked()

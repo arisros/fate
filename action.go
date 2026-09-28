@@ -65,7 +65,7 @@ func (a raiseAction[Ctx, Evt]) apply(c Ctx, _ Evt, sink actionSink[Ctx, Evt]) Ct
 // raised event is known statically, so the label names it: "raise:CANCEL". An
 // event whose name cannot be resolved degrades to a bare "raise".
 func (a raiseAction[Ctx, Evt]) ImplName() string {
-	if name := eventNameOf(a.evt); name != "" {
+	if name, ok := eventNameOf(a.evt); ok && name != "" {
 		return "raise:" + name
 	}
 	return "raise"

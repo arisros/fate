@@ -167,6 +167,9 @@ func (a *Actor[Ctx, Evt]) Start(_ context.Context) error {
 // If processing the event causes the actor to reach a top-level final
 // state, its status transitions to StatusDone. Subsequent Sends are
 // silently dropped (matching XState v5 semantics).
+//
+// Send returns ErrUnnamedEvent, changing nothing, when the event's name cannot
+// be resolved (see MachineConfig.EventName).
 func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -179,7 +182,9 @@ func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
 	if a.status != StatusRunning {
 		return ErrActorNotStarted
 	}
-	a.handleEventLocked(evt)
+	if err := a.handleEventLocked(evt); err != nil {
+		return err
+	}
 	a.drainQueueLocked()
 	a.settleFinalLocked(evt)
 	a.notifyLocked()
@@ -213,8 +218,11 @@ func (a *Actor[Ctx, Evt]) Can(evt Evt) bool {
 	if a.status != StatusRunning {
 		return false
 	}
-	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, eventNameOf(evt))
-	return len(selections) > 0
+	name, err := a.machine.eventName(evt)
+	if err != nil {
+		return false
+	}
+	return len(selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, name)) > 0
 }
 
 // Snapshot returns the actor's current state. Safe to call concurrently.
@@ -256,8 +264,11 @@ func (a *Actor[Ctx, Evt]) Stop() {
 // runs actions in the SCXML-defined order. Each selected transition is
 // applied in the order returned by selectTransitions (deterministic across
 // runs, since leaves are visited in alphabetical path order).
-func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt) {
-	eventName := eventNameOf(evt)
+func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt) error {
+	eventName, err := a.machine.eventName(evt)
+	if err != nil {
+		return err
+	}
 	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, eventName)
 	for _, sel := range selections {
 		t := sel.Config
@@ -275,6 +286,7 @@ func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt) {
 		}
 		a.runTransitionLocked(sel.Source, target, t, evt)
 	}
+	return nil
 }
 
 // runTransitionLocked is the SCXML transition apply step factored out so
@@ -491,7 +503,9 @@ func (a *Actor[Ctx, Evt]) drainQueueLocked() {
 		if !ok {
 			return
 		}
-		a.handleEventLocked(evt)
+		if err := a.handleEventLocked(evt); err != nil && a.logger != nil {
+			a.logger("statechart: raised event dropped: " + err.Error())
+		}
 	}
 	if a.logger != nil {
 		a.logger("statechart: queue drain cap reached; events dropped")
@@ -607,34 +621,46 @@ func (n *stateNode[Ctx, Evt]) entry() []Action[Ctx, Evt] { return n.entryActions
 // exit returns the node's exit actions.
 func (n *stateNode[Ctx, Evt]) exit() []Action[Ctx, Evt] { return n.exitActions }
 
-// eventNameOf extracts a string tag for an event. The convention is:
+// eventNameOf extracts a string tag for an event when no machine-level
+// [MachineConfig.EventName] is set. The convention is:
 //
-//  1. If Evt is a string (or string-typed), it is the name directly.
+//  1. A plain string is the name directly.
 //  2. If Evt has an EventName() method, that is used.
-//  3. Otherwise, reflection takes the concrete struct type's name and
-//     strips conventional suffixes ("T", "Event") used by codegen.
+//  3. A value of a named string type (type Kind string) is its own value.
+//  4. A struct (or pointer to one) is named after its type, with the
+//     conventional codegen suffixes ("T", "Event") stripped.
 //
-// Codegen-emitted typed events (per ADR-006) implement EventName() so they
-// don't pay the reflection cost.
-func eventNameOf(evt any) string {
+// Any other kind, such as a named int enum, has no name the engine can derive:
+// every value would collapse to the type name. It reports false so the caller
+// fails with [ErrUnnamedEvent] rather than dispatching on the wrong name.
+func eventNameOf(evt any) (string, bool) {
 	if s, ok := evt.(string); ok {
-		return s
+		return s, true
 	}
 	if named, ok := evt.(interface{ EventName() string }); ok {
-		return named.EventName()
+		return named.EventName(), true
 	}
-	t := reflect.TypeOf(evt)
-	if t == nil {
-		return ""
+	v := reflect.ValueOf(evt)
+	if !v.IsValid() {
+		return "", false
 	}
-	if t.Kind() == reflect.Pointer {
-		t = t.Elem()
+	if v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return "", false
+		}
+		v = v.Elem()
 	}
-	name := t.Name()
+	if v.Kind() == reflect.String {
+		return v.String(), true
+	}
+	if v.Kind() != reflect.Struct {
+		return "", false
+	}
+	name := v.Type().Name()
 	for _, suffix := range []string{"T", "Event"} {
 		if len(name) > len(suffix) && name[len(name)-len(suffix):] == suffix {
-			return name[:len(name)-len(suffix)]
+			return name[:len(name)-len(suffix)], true
 		}
 	}
-	return name
+	return name, true
 }

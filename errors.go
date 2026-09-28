@@ -33,4 +33,10 @@ var (
 
 	// ErrActorStopped is returned by Send when the actor has been Stopped.
 	ErrActorStopped = errors.New("statechart: actor stopped")
+
+	// ErrUnnamedEvent is returned by Send when the event's name cannot be
+	// resolved: Evt is a kind the default rules cannot name (such as an int
+	// enum without an EventName method) and the machine sets no
+	// MachineConfig.EventName, or that func returned "".
+	ErrUnnamedEvent = errors.New("statechart: event has no resolvable name")
 )
