@@ -6,7 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/action"
+	"github.com/arisros/fate/engine"
 )
 
 // Ctx is the machine's typed context.
@@ -22,17 +23,17 @@ func (inc) isEvt()   {}
 func (reset) isEvt() {}
 
 func main() {
-	m, err := fate.CreateMachine(fate.MachineConfig[Ctx, Evt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[Ctx, Evt]{
 		ID:      "counter",
 		Initial: "active",
-		States: map[string]fate.StateNodeConfig[Ctx, Evt]{
+		States: map[string]engine.StateNodeConfig[Ctx, Evt]{
 			"active": {
-				On: map[string][]fate.TransitionConfig[Ctx, Evt]{
-					"inc": {{Actions: []fate.Action[Ctx, Evt]{
-						fate.Assign(func(c Ctx, _ Evt) Ctx { c.Count++; return c }),
+				On: map[string][]engine.TransitionConfig[Ctx, Evt]{
+					"inc": {{Actions: []action.Action[Ctx, Evt]{
+						action.Assign(func(c Ctx, _ Evt) Ctx { c.Count++; return c }),
 					}}},
-					"reset": {{Target: "active", Actions: []fate.Action[Ctx, Evt]{
-						fate.Assign(func(c Ctx, _ Evt) Ctx { c.Count = 0; return c }),
+					"reset": {{Target: "active", Actions: []action.Action[Ctx, Evt]{
+						action.Assign(func(c Ctx, _ Evt) Ctx { c.Count = 0; return c }),
 					}}},
 				},
 			},
@@ -42,13 +43,13 @@ func main() {
 		panic(err)
 	}
 
-	a := fate.NewActor(m)
+	a := engine.NewActor(m)
 	_ = a.Start(context.Background())
 	_ = a.Send(context.Background(), inc{})
 	_ = a.Send(context.Background(), inc{})
 	fmt.Println("count:", a.Snapshot().Context.Count) // 2
 
 	blob, _ := a.Persist()
-	b, _ := fate.NewActorFromSnapshot[Ctx, Evt](m, blob)
+	b, _ := engine.NewActorFromSnapshot[Ctx, Evt](m, blob)
 	fmt.Println("restored count:", b.Snapshot().Context.Count) // 2
 }

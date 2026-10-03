@@ -90,6 +90,7 @@ export default defineConfig({
           { text: '0004 · Invoke and spawn', link: '/adr/0004-invoke-spawn-effects' },
           { text: '0005 · Temporal boundary', link: '/adr/0005-temporal-integration-boundary' },
           { text: '0006 · Dropped events', link: '/adr/0006-observability-of-dropped-events' },
+          { text: '0007 · Package layout', link: '/adr/0007-package-layout' },
         ],
       },
     ],
