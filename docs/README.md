@@ -51,6 +51,9 @@ make site-image   # container image, tagged with the released version
 
 The version shown in the navigation and footer is read at build time from
 `.release-please-manifest.json`, so it follows releases automatically.
+Every push to `main` that touches `docs/` publishes
+`ghcr.io/arisros/fate-site:<version>-<short sha>` from
+[`site-image.yml`](../.github/workflows/site-image.yml).
 [`Dockerfile`](Dockerfile) builds the site and [`server/`](server) serves it:
 a standard-library-only static server that resolves clean URLs, redirects the
 paths the previous site published, and answers `/healthz`.
