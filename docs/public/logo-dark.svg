@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="fate">
+  <title>fate</title>
+  <rect x="5" y="5" width="54" height="54" rx="13" fill="none" stroke="#e4e6ea" stroke-width="4.5"/>
+  <path d="M19 46 V26 Q19 19 26 19 H32 M19 40 Q19 35 25 35 H30" fill="none" stroke="#e4e6ea" stroke-width="4"/>
+  <circle cx="19" cy="47" r="4.3" fill="#e4e6ea"/>
+  <rect x="31" y="11.5" width="15" height="15" rx="5" fill="#c2ef4e"/>
+  <circle cx="36" cy="35" r="5" fill="none" stroke="#e4e6ea" stroke-width="2.6"/>
+  <circle cx="36" cy="35" r="2.1" fill="#e4e6ea"/>
+</svg>
