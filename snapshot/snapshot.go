@@ -3,7 +3,7 @@
 //
 // The emitted file is a plain MachineDescriptor JSON — a type-erased, engine-
 // runtime-free view of the machine's structure. fate-studio loads it with
-// fate.LoadDescriptor and renders the chart WITHOUT importing or running the
+// describe.LoadDescriptor and renders the chart WITHOUT importing or running the
 // implementation, so a core (LTW, fate-example, …) whose machines live in
 // internal packages can still be visualized across module boundaries.
 //
@@ -19,19 +19,20 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/describe"
+	"github.com/arisros/fate/engine"
 )
 
 // Emit writes m.Describe() as indented JSON to <dir>/<name>.json, creating dir
 // if needed. name becomes the studio machine id, so keep it stable and
 // filesystem-safe (lowercase, hyphens).
-func Emit[Ctx any, Evt any](dir, name string, m *fate.Machine[Ctx, Evt]) error {
+func Emit[Ctx any, Evt any](dir, name string, m *engine.Machine[Ctx, Evt]) error {
 	return EmitDescriptor(dir, name, m.Describe())
 }
 
 // EmitDescriptor writes a pre-built descriptor. Use when you already hold a
 // descriptor (e.g. one loaded from elsewhere) rather than a live *Machine.
-func EmitDescriptor(dir, name string, d fate.MachineDescriptor) error {
+func EmitDescriptor(dir, name string, d describe.MachineDescriptor) error {
 	if name == "" {
 		return fmt.Errorf("snapshot: empty machine name")
 	}

@@ -6,7 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	sc "github.com/arisros/fate"
+	"github.com/arisros/fate/describe"
+	"github.com/arisros/fate/engine"
 	"github.com/arisros/fate/render"
 )
 
@@ -17,32 +18,32 @@ type gTick struct{}
 func (gTick) isGEvt()           {}
 func (gTick) EventName() string { return "TICK" }
 
-func buildGraphFixture(t *testing.T) sc.MachineDescriptor {
+func buildGraphFixture(t *testing.T) describe.MachineDescriptor {
 	t.Helper()
-	m, err := sc.CreateMachine(sc.MachineConfig[gCtx, gEvt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[gCtx, gEvt]{
 		ID:      "graph-fixture",
 		Initial: "active",
-		States: map[string]sc.StateNodeConfig[gCtx, gEvt]{
+		States: map[string]engine.StateNodeConfig[gCtx, gEvt]{
 			"active": {
 				Initial: "running",
-				On: map[string][]sc.TransitionConfig[gCtx, gEvt]{
+				On: map[string][]engine.TransitionConfig[gCtx, gEvt]{
 					"TICK": {{Target: "stopped"}},
 				},
-				States: map[string]sc.StateNodeConfig[gCtx, gEvt]{
+				States: map[string]engine.StateNodeConfig[gCtx, gEvt]{
 					"running": {
-						On: map[string][]sc.TransitionConfig[gCtx, gEvt]{
+						On: map[string][]engine.TransitionConfig[gCtx, gEvt]{
 							"TICK": {{Target: "paused", Internal: true}},
 						},
 					},
 					"paused": {},
 				},
 			},
-			"stopped": {Type: sc.NodeFinal},
+			"stopped": {Type: engine.NodeFinal},
 			"regions": {
-				Type: sc.NodeParallel,
-				States: map[string]sc.StateNodeConfig[gCtx, gEvt]{
-					"a": {Initial: "a1", States: map[string]sc.StateNodeConfig[gCtx, gEvt]{"a1": {}}},
-					"b": {Initial: "b1", States: map[string]sc.StateNodeConfig[gCtx, gEvt]{"b1": {}}},
+				Type: engine.NodeParallel,
+				States: map[string]engine.StateNodeConfig[gCtx, gEvt]{
+					"a": {Initial: "a1", States: map[string]engine.StateNodeConfig[gCtx, gEvt]{"a1": {}}},
+					"b": {Initial: "b1", States: map[string]engine.StateNodeConfig[gCtx, gEvt]{"b1": {}}},
 				},
 			},
 		},

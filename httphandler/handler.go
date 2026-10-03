@@ -1,4 +1,4 @@
-// Package httphandler exposes a fate [fate.Actor] as an HTTP simulator API —
+// Package httphandler exposes a fate [engine.Actor] as an HTTP simulator API —
 // the same wire protocol as fate-studio's /sim/{name}/* endpoints. Services
 // mount it on their own router; fate-studio connects via ProxyURL without any
 // Go import coupling.
@@ -41,7 +41,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/describe"
+	"github.com/arisros/fate/effect"
+	"github.com/arisros/fate/engine"
+	"github.com/arisros/fate/persist"
 	"github.com/arisros/fate/render"
 )
 
@@ -55,14 +58,14 @@ const (
 // is identical to fate-studio's LiveSnapshot so that fate-studio's ProxyURL
 // mode can forward it transparently.
 type LiveSnapshot struct {
-	Path        string           `json:"path"`
-	Context     json.RawMessage  `json:"context"`
-	Status      fate.ActorStatus `json:"status"`
-	ASCII       string           `json:"ascii"`
-	Timers      []timerInfo      `json:"timers,omitempty"`
-	Invocations []invokeInfo     `json:"invocations,omitempty"`
+	Path        string              `json:"path"`
+	Context     json.RawMessage     `json:"context"`
+	Status      persist.ActorStatus `json:"status"`
+	ASCII       string              `json:"ascii"`
+	Timers      []timerInfo         `json:"timers,omitempty"`
+	Invocations []invokeInfo        `json:"invocations,omitempty"`
 	// UIState is the machine's view model for the active states, see
-	// fate.Machine.UIState. UIStateError is set instead when it fails.
+	// engine.Machine.UIState. UIStateError is set instead when it fails.
 	UIState      map[string]json.RawMessage `json:"ui_state,omitempty"`
 	UIStateError string                     `json:"ui_state_error,omitempty"`
 }
@@ -86,9 +89,9 @@ type snapResponse struct {
 // Handler is an http.Handler that wraps a session store for one machine.
 // Obtain one via [New].
 type Handler[Ctx any, Evt any] struct {
-	machine  *fate.Machine[Ctx, Evt]
+	machine  *engine.Machine[Ctx, Evt]
 	dispatch func(string) (Evt, error)
-	desc     fate.MachineDescriptor
+	desc     describe.MachineDescriptor
 	store    *sessionStore[Ctx, Evt]
 }
 
@@ -96,7 +99,7 @@ type Handler[Ctx any, Evt any] struct {
 // API. dispatch maps event-name strings to typed events; it should return
 // ErrUnknownEvent for unrecognised names (surfaces as HTTP 400).
 func New[Ctx any, Evt any](
-	m *fate.Machine[Ctx, Evt],
+	m *engine.Machine[Ctx, Evt],
 	dispatch func(string) (Evt, error),
 ) *Handler[Ctx, Evt] {
 	h := &Handler[Ctx, Evt]{
@@ -146,7 +149,7 @@ func (h *Handler[Ctx, Evt]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ----- snapshot building -----
 
-func (h *Handler[Ctx, Evt]) buildSnapshot(a *fate.Actor[Ctx, Evt]) LiveSnapshot {
+func (h *Handler[Ctx, Evt]) buildSnapshot(a *engine.Actor[Ctx, Evt]) LiveSnapshot {
 	snap := a.Snapshot()
 	ctxBytes, _ := json.Marshal(snap.Context)
 	activePath := snap.Value.Path()
@@ -188,7 +191,7 @@ func (h *Handler[Ctx, Evt]) buildSnapshot(a *fate.Actor[Ctx, Evt]) LiveSnapshot 
 	return out
 }
 
-func (h *Handler[Ctx, Evt]) availableEvents(a *fate.Actor[Ctx, Evt]) []string {
+func (h *Handler[Ctx, Evt]) availableEvents(a *engine.Actor[Ctx, Evt]) []string {
 	path := a.Snapshot().Value.Path()
 	seen := map[string]struct{}{}
 	var evts []string
@@ -236,8 +239,8 @@ func tokenFor(w http.ResponseWriter, r *http.Request) string {
 
 func (h *Handler[Ctx, Evt]) sessionFor(w http.ResponseWriter, r *http.Request) *session[Ctx, Evt] {
 	tok := tokenFor(w, r)
-	return h.store.getOrCreate(tok, func() *fate.Actor[Ctx, Evt] {
-		a := fate.NewActor(h.machine)
+	return h.store.getOrCreate(tok, func() *engine.Actor[Ctx, Evt] {
+		a := engine.NewActor(h.machine)
 		_ = a.Start(context.Background())
 		return a
 	})
@@ -452,19 +455,19 @@ func writeSSE(w io.Writer, snap LiveSnapshot) error {
 
 // ----- descriptor walk -----
 
-func descriptorNodeAt(d fate.MachineDescriptor, path string) (fate.StateNodeDescriptor, bool) {
+func descriptorNodeAt(d describe.MachineDescriptor, path string) (describe.StateNodeDescriptor, bool) {
 	if path == "" {
-		return fate.StateNodeDescriptor{}, false
+		return describe.StateNodeDescriptor{}, false
 	}
 	segs := strings.Split(path, ".")
 	cur, ok := d.States[segs[0]]
 	if !ok {
-		return fate.StateNodeDescriptor{}, false
+		return describe.StateNodeDescriptor{}, false
 	}
 	for _, s := range segs[1:] {
 		next, ok := cur.States[s]
 		if !ok {
-			return fate.StateNodeDescriptor{}, false
+			return describe.StateNodeDescriptor{}, false
 		}
 		cur = next
 	}
@@ -475,7 +478,7 @@ func descriptorNodeAt(d fate.MachineDescriptor, path string) (fate.StateNodeDesc
 
 type session[Ctx any, Evt any] struct {
 	mu       sync.Mutex
-	actor    *fate.Actor[Ctx, Evt]
+	actor    *engine.Actor[Ctx, Evt]
 	subs     []chan LiveSnapshot
 	history  [][]byte
 	events   []string
@@ -546,7 +549,7 @@ func (s *session[Ctx, Evt]) applyEffect(label string, fn func() error) error {
 
 func (s *session[Ctx, Evt]) fireTimer(id string) error {
 	return s.applyEffect("⏲ after", func() error {
-		s.actor.FireTimer(fate.TimerID(id))
+		s.actor.FireTimer(effect.TimerID(id))
 		return nil
 	})
 }
@@ -559,7 +562,7 @@ func (s *session[Ctx, Evt]) resolveInvocation(id, outputJSON string) error {
 				return fmt.Errorf("output is not valid JSON: %w", err)
 			}
 		}
-		s.actor.ResolveInvocation(fate.InvokeID(id), out)
+		s.actor.ResolveInvocation(effect.InvokeID(id), out)
 		return nil
 	})
 }
@@ -569,22 +572,22 @@ func (s *session[Ctx, Evt]) rejectInvocation(id, errMsg string) error {
 		if errMsg == "" {
 			errMsg = "rejected"
 		}
-		s.actor.RejectInvocation(fate.InvokeID(id), errors.New(errMsg))
+		s.actor.RejectInvocation(effect.InvokeID(id), errors.New(errMsg))
 		return nil
 	})
 }
 
-func (s *session[Ctx, Evt]) reset(m *fate.Machine[Ctx, Evt]) {
+func (s *session[Ctx, Evt]) reset(m *engine.Machine[Ctx, Evt]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	a := fate.NewActor(m)
+	a := engine.NewActor(m)
 	_ = a.Start(context.Background())
 	s.actor = a
 	s.history = nil
 	s.events = nil
 }
 
-func (s *session[Ctx, Evt]) undo(m *fate.Machine[Ctx, Evt]) (bool, error) {
+func (s *session[Ctx, Evt]) undo(m *engine.Machine[Ctx, Evt]) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.history) == 0 {
@@ -593,7 +596,7 @@ func (s *session[Ctx, Evt]) undo(m *fate.Machine[Ctx, Evt]) (bool, error) {
 	snap := s.history[len(s.history)-1]
 	s.history = s.history[:len(s.history)-1]
 	s.events = s.events[:len(s.events)-1]
-	a, err := fate.NewActorFromSnapshot(m, snap)
+	a, err := engine.NewActorFromSnapshot(m, snap)
 	if err != nil {
 		return false, err
 	}
@@ -601,10 +604,10 @@ func (s *session[Ctx, Evt]) undo(m *fate.Machine[Ctx, Evt]) (bool, error) {
 	return true, nil
 }
 
-func (s *session[Ctx, Evt]) importSnapshot(m *fate.Machine[Ctx, Evt], data []byte) error {
+func (s *session[Ctx, Evt]) importSnapshot(m *engine.Machine[Ctx, Evt], data []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	a, err := fate.NewActorFromSnapshot(m, data)
+	a, err := engine.NewActorFromSnapshot(m, data)
 	if err != nil {
 		return err
 	}
@@ -659,7 +662,7 @@ func newSessionStore[Ctx any, Evt any]() *sessionStore[Ctx, Evt] {
 	return st
 }
 
-func (st *sessionStore[Ctx, Evt]) getOrCreate(token string, build func() *fate.Actor[Ctx, Evt]) *session[Ctx, Evt] {
+func (st *sessionStore[Ctx, Evt]) getOrCreate(token string, build func() *engine.Actor[Ctx, Evt]) *session[Ctx, Evt] {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	if s, ok := st.m[token]; ok {

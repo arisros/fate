@@ -7,17 +7,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/engine"
+	"github.com/arisros/fate/persist"
 )
 
 // WaitFor blocks until the actor's snapshot satisfies pred or the deadline
 // expires. The default deadline is 1 second; override with a non-zero
 // timeout argument.
 func WaitFor[Ctx any, Evt any](
-	a *fate.Actor[Ctx, Evt],
-	pred func(fate.Snapshot[Ctx]) bool,
+	a *engine.Actor[Ctx, Evt],
+	pred func(persist.Snapshot[Ctx]) bool,
 	timeout time.Duration,
-) (fate.Snapshot[Ctx], error) {
+) (persist.Snapshot[Ctx], error) {
 	if timeout == 0 {
 		timeout = time.Second
 	}
@@ -36,14 +37,14 @@ func WaitFor[Ctx any, Evt any](
 // actor's Subscribe channel, in order. Useful for asserting on the sequence
 // of states a test drives the actor through.
 type Trace[Ctx any] struct {
-	Snapshots []fate.Snapshot[Ctx]
+	Snapshots []persist.Snapshot[Ctx]
 	unsub     func()
 }
 
 // NewTrace starts capturing snapshots from the actor immediately.
-func NewTrace[Ctx any, Evt any](a *fate.Actor[Ctx, Evt]) *Trace[Ctx] {
+func NewTrace[Ctx any, Evt any](a *engine.Actor[Ctx, Evt]) *Trace[Ctx] {
 	t := &Trace[Ctx]{}
-	t.unsub = a.Subscribe(func(s fate.Snapshot[Ctx]) {
+	t.unsub = a.Subscribe(func(s persist.Snapshot[Ctx]) {
 		t.Snapshots = append(t.Snapshots, s)
 	})
 	return t

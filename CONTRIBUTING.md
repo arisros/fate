@@ -33,11 +33,12 @@ golangci-lint run
 cd temporal && go test -race ./...
 ```
 
-Coverage gate: the root module must stay at or above **85%** line coverage.
+Coverage gate: the root module must stay at or above **85%** line coverage. The
+behavioural suite lives in `engine/` and drives the other packages through it,
+so coverage is counted across packages (`-coverpkg`).
 
 ```sh
-go test -coverprofile=cover.out ./...
-go tool cover -func=cover.out | tail -1
+make cover
 ```
 
 ## Determinism tests
