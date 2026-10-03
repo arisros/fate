@@ -68,6 +68,9 @@ jobs:
   coverage:
     name: coverage gate (>=85%)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Codecov upload authenticates with OIDC, no stored token
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -86,6 +89,15 @@ jobs:
           total=$(go tool cover -func=cover.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')
           echo "total coverage: ${total}%"
           awk "BEGIN { exit !(${total} >= 85) }" || { echo "coverage ${total}% is below the 85% gate"; exit 1; }
+      - name: publish to Codecov
+        # Reporting only: the gate above decides pass or fail, and a fork PR
+        # has no OIDC token to upload with.
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: cover.out
+          disable_search: true
+          fail_ci_if_error: false
 
   goreleaser-check:
     name: validate GoReleaser config

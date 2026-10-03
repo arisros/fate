@@ -9,6 +9,7 @@
 <p align="center">
   <a href="https://pkg.go.dev/github.com/arisros/fate/engine"><img src="https://pkg.go.dev/badge/github.com/arisros/fate/engine.svg" alt="Go Reference"></a>
   <a href="https://github.com/arisros/fate/actions/workflows/ci.yml"><img src="https://github.com/arisros/fate/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://codecov.io/gh/arisros/fate"><img src="https://codecov.io/gh/arisros/fate/branch/main/graph/badge.svg" alt="Coverage"></a>
   <a href="https://github.com/arisros/fate/releases"><img src="https://img.shields.io/github/v/release/arisros/fate?sort=semver" alt="Release"></a>
   <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/arisros/fate" alt="Go"></a>
   <a href="https://goreportcard.com/report/github.com/arisros/fate"><img src="https://goreportcard.com/badge/github.com/arisros/fate" alt="Go Report Card"></a>
