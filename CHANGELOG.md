@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.6.0](https://github.com/arisros/fate/compare/v0.5.1...v0.6.0) (2026-10-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* every fate.X is now engine.X, action.X, effect.X, persist.X or describe.X. Symbol names are unchanged; see docs/adr/0007-package-layout.md for the mapping. Action.Apply, action.Sink, Cond.Matches, CondMeta.Seal and CondMeta.Clone are now exported.
+
+### Added
+
+* split the engine into packages and deprecate the root API ([#26](https://github.com/arisros/fate/issues/26)) ([bbc6f9b](https://github.com/arisros/fate/commit/bbc6f9bf279a9d3d713313fa45b7c0e9d02698a6))
+
 ## [0.5.1](https://github.com/arisros/fate/compare/v0.5.0...v0.5.1) (2026-09-17)
 
 
