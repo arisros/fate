@@ -1,4 +1,4 @@
-// Package diff computes structural differences between two [fate.Snapshot] values of the same context type.
+// Package diff computes structural differences between two [persist.Snapshot] values of the same context type.
 package diff
 
 import (
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/persist"
 )
 
 // Kind enumerates the categories of difference [Snapshots] may surface.
@@ -61,7 +61,7 @@ func (d Result) Strings() []string {
 }
 
 // Snapshots computes the structural diff between two Snapshots of the same context type.
-func Snapshots[Ctx any](left, right fate.Snapshot[Ctx]) Result {
+func Snapshots[Ctx any](left, right persist.Snapshot[Ctx]) Result {
 	var out Result
 
 	if leftPath, rightPath := left.Value.Path(), right.Value.Path(); leftPath != rightPath {

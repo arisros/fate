@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	sc "github.com/arisros/fate"
 	"github.com/arisros/fate/diff"
+	"github.com/arisros/fate/persist"
 )
 
 type diffCtx struct {
@@ -15,13 +15,13 @@ type diffCtx struct {
 	Tags  []string       `json:"tags,omitempty"`
 }
 
-func snap(value sc.StateValue, status sc.ActorStatus, ctx diffCtx) sc.Snapshot[diffCtx] {
-	return sc.Snapshot[diffCtx]{Value: value, Status: status, Context: ctx}
+func snap(value persist.StateValue, status persist.ActorStatus, ctx diffCtx) persist.Snapshot[diffCtx] {
+	return persist.Snapshot[diffCtx]{Value: value, Status: status, Context: ctx}
 }
 
 func TestSnapshots_EmptyWhenEqual(t *testing.T) {
-	a := snap(sc.AtomicValue("active"), sc.StatusRunning, diffCtx{Stage: "pin", Score: 5})
-	b := snap(sc.AtomicValue("active"), sc.StatusRunning, diffCtx{Stage: "pin", Score: 5})
+	a := snap(persist.AtomicValue("active"), persist.StatusRunning, diffCtx{Stage: "pin", Score: 5})
+	b := snap(persist.AtomicValue("active"), persist.StatusRunning, diffCtx{Stage: "pin", Score: 5})
 	d := diff.Snapshots(a, b)
 	if !d.Empty() {
 		t.Errorf("expected empty diff; got %v", d.Strings())
@@ -29,8 +29,8 @@ func TestSnapshots_EmptyWhenEqual(t *testing.T) {
 }
 
 func TestSnapshots_StateValueDifference(t *testing.T) {
-	a := snap(sc.AtomicValue("verif"), sc.StatusRunning, diffCtx{})
-	b := snap(sc.AtomicValue("asset_doc"), sc.StatusRunning, diffCtx{})
+	a := snap(persist.AtomicValue("verif"), persist.StatusRunning, diffCtx{})
+	b := snap(persist.AtomicValue("asset_doc"), persist.StatusRunning, diffCtx{})
 	d := diff.Snapshots(a, b)
 	if d.Empty() {
 		t.Fatal("expected non-empty diff")
@@ -47,8 +47,8 @@ func TestSnapshots_StateValueDifference(t *testing.T) {
 }
 
 func TestSnapshots_StatusDifference(t *testing.T) {
-	a := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{})
-	b := snap(sc.AtomicValue("x"), sc.StatusDone, diffCtx{})
+	a := snap(persist.AtomicValue("x"), persist.StatusRunning, diffCtx{})
+	b := snap(persist.AtomicValue("x"), persist.StatusDone, diffCtx{})
 	d := diff.Snapshots(a, b)
 	var found bool
 	for _, e := range d.Entries {
@@ -62,8 +62,8 @@ func TestSnapshots_StatusDifference(t *testing.T) {
 }
 
 func TestSnapshots_ContextFieldDifference(t *testing.T) {
-	a := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Stage: "pin", Score: 5})
-	b := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Stage: "pin", Score: 9})
+	a := snap(persist.AtomicValue("x"), persist.StatusRunning, diffCtx{Stage: "pin", Score: 5})
+	b := snap(persist.AtomicValue("x"), persist.StatusRunning, diffCtx{Stage: "pin", Score: 9})
 	d := diff.Snapshots(a, b)
 	if d.Empty() {
 		t.Fatal("expected non-empty diff")
@@ -80,8 +80,8 @@ func TestSnapshots_ContextFieldDifference(t *testing.T) {
 }
 
 func TestSnapshots_MissingFieldSurfacesAsContextField(t *testing.T) {
-	a := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Stage: "pin", Flags: map[string]any{"vip": true}})
-	b := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Stage: "pin"})
+	a := snap(persist.AtomicValue("x"), persist.StatusRunning, diffCtx{Stage: "pin", Flags: map[string]any{"vip": true}})
+	b := snap(persist.AtomicValue("x"), persist.StatusRunning, diffCtx{Stage: "pin"})
 	d := diff.Snapshots(a, b)
 	var found bool
 	for _, e := range d.Entries {
@@ -95,8 +95,8 @@ func TestSnapshots_MissingFieldSurfacesAsContextField(t *testing.T) {
 }
 
 func TestSnapshots_ArrayLengthDifference(t *testing.T) {
-	a := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Tags: []string{"a", "b"}})
-	b := snap(sc.AtomicValue("x"), sc.StatusRunning, diffCtx{Tags: []string{"a", "b", "c"}})
+	a := snap(persist.AtomicValue("x"), persist.StatusRunning, diffCtx{Tags: []string{"a", "b"}})
+	b := snap(persist.AtomicValue("x"), persist.StatusRunning, diffCtx{Tags: []string{"a", "b", "c"}})
 	d := diff.Snapshots(a, b)
 	var found bool
 	for _, e := range d.Entries {
@@ -110,8 +110,8 @@ func TestSnapshots_ArrayLengthDifference(t *testing.T) {
 }
 
 func TestSnapshots_StringsAreSortedAndDeterministic(t *testing.T) {
-	a := snap(sc.AtomicValue("verif"), sc.StatusRunning, diffCtx{Stage: "pin", Score: 5})
-	b := snap(sc.AtomicValue("asset_doc"), sc.StatusDone, diffCtx{Stage: "verif", Score: 9})
+	a := snap(persist.AtomicValue("verif"), persist.StatusRunning, diffCtx{Stage: "pin", Score: 5})
+	b := snap(persist.AtomicValue("asset_doc"), persist.StatusDone, diffCtx{Stage: "verif", Score: 9})
 	d := diff.Snapshots(a, b)
 
 	got := d.Strings()

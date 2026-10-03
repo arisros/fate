@@ -44,9 +44,6 @@ linters:
       - path: ^examples/
         linters:
           - unused
-      - linters:
-          - unused
-        text: \.apply is unused
     paths:
       - third_party$
       - builtin$
