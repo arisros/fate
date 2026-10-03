@@ -1,4 +1,4 @@
-// Package diff computes structural differences between two [fate.Snapshot]
+// Package diff computes structural differences between two [persist.Snapshot]
 // values of the same context type. It is pure (no I/O, no side effects) and
 // deterministic — the same pair of snapshots always produces the same [Result].
 //
@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/persist"
 )
 
 // Kind enumerates the categories of difference [Snapshots] may surface.
@@ -79,7 +79,7 @@ func (d Result) Strings() []string {
 //
 // Context comparison serializes both sides to JSON and walks the resulting
 // trees. Non-marshalable contexts surface a single [KindContextShape] entry.
-func Snapshots[Ctx any](left, right fate.Snapshot[Ctx]) Result {
+func Snapshots[Ctx any](left, right persist.Snapshot[Ctx]) Result {
 	var out Result
 
 	if leftPath, rightPath := left.Value.Path(), right.Value.Path(); leftPath != rightPath {

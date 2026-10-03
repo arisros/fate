@@ -12,19 +12,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/engine"
+	"github.com/arisros/fate/persist"
 )
 
 func main() {
-	m, err := fate.CreateMachine(fate.MachineConfig[struct{}, string]{
+	m, err := engine.CreateMachine(engine.MachineConfig[struct{}, string]{
 		ID:      "countdown",
 		Initial: "three",
-		States: map[string]fate.StateNodeConfig[struct{}, string]{
+		States: map[string]engine.StateNodeConfig[struct{}, string]{
 			"three": {After: after("two")},
 			"two":   {After: after("one")},
 			"one":   {After: after("liftoff")},
 			"liftoff": {
-				Type: fate.NodeFinal,
+				Type: engine.NodeFinal,
 			},
 		},
 	})
@@ -32,14 +33,14 @@ func main() {
 		panic(err)
 	}
 
-	a := fate.NewActor(m)
+	a := engine.NewActor(m)
 	_ = a.Start(context.Background())
 	fmt.Println(a.Snapshot().Value.Path())
 
 	// Minimal real-time driver: arm one OS timer for the earliest pending fate
 	// timer, fire it, repeat. (A production driver would reconcile all pending
 	// timers and react to cancellations; the Temporal adapter does this fully.)
-	for a.Snapshot().Status == fate.StatusRunning {
+	for a.Snapshot().Status == persist.StatusRunning {
 		pending := a.PendingTimers()
 		if len(pending) == 0 {
 			break
@@ -50,8 +51,8 @@ func main() {
 	}
 }
 
-func after(target string) map[time.Duration][]fate.TransitionConfig[struct{}, string] {
-	return map[time.Duration][]fate.TransitionConfig[struct{}, string]{
+func after(target string) map[time.Duration][]engine.TransitionConfig[struct{}, string] {
+	return map[time.Duration][]engine.TransitionConfig[struct{}, string]{
 		100 * time.Millisecond: {{Target: target}},
 	}
 }

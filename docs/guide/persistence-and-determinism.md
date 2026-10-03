@@ -6,7 +6,7 @@ An actor's entire state serialises to JSON and back:
 
 ```go
 blob, err := actor.Persist()                       // []byte of JSON
-restored, err := fate.NewActorFromSnapshot[Ctx, Evt](machine, blob)
+restored, err := engine.NewActorFromSnapshot[Ctx, Evt](machine, blob)
 ```
 
 The snapshot holds the active configuration, the context, the lifecycle status,
