@@ -28,7 +28,7 @@ is a thin, generic driver, not a rewrite of your machine.
 
 ## WorkflowActor
 
-`WorkflowActor` hosts an `engine.Actor` inside a workflow and drives its pending
+`WorkflowActor` hosts a `fate.Actor` inside a workflow and drives its pending
 effects with Temporal primitives:
 
 ```go

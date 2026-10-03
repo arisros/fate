@@ -55,3 +55,7 @@ The behavioural test suite moves to `engine/` with the types it drives.
   `engine/` is what exercises `action`, `persist`, `effect` and `describe`.
 - A machine definition now needs two imports (`engine` and `action`) where it
   needed one.
+- The Temporal module pins a published engine tag, so it is untouched here and
+  still uses the `fate.X` names of v0.5.1. It migrates in a follow-up once the
+  root release containing this split is tagged. Until then it does not build
+  against that release.

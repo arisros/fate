@@ -20,3 +20,12 @@ updates:
       interval: weekly
     commit-message:
       prefix: "chore(temporal)"
+
+  # The documentation site (docs/) is the one place in the repository with npm
+  # dependencies.
+  - package-ecosystem: npm
+    directory: "/docs"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(docs)"
