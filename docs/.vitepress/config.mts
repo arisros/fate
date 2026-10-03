@@ -103,7 +103,7 @@ export default defineConfig({
       text: 'Edit this page on GitHub',
     },
     footer: {
-      message: `Released under the MIT License · v${version} · <a href="https://pkg.go.dev/github.com/arisros/fate">pkg.go.dev</a>`,
+      message: `Released under the MIT License · v${version} · <a href="https://pkg.go.dev/github.com/arisros/fate/engine">pkg.go.dev</a>`,
       copyright: 'Copyright © Aris Jirat Kurniawan',
     },
   },
