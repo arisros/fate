@@ -40,7 +40,8 @@ export default defineConfig({
   ],
 
   themeConfig: {
-    logo: { light: '/logo-light.svg', dark: '/logo-dark.svg' },
+    logo: { light: '/logo-light.svg', dark: '/logo-dark.svg', alt: '' },
+    siteTitle: false,
 
     nav: [
       { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },
