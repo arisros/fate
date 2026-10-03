@@ -27,7 +27,7 @@ GitHub. For a first machine in a few lines, start with
   and how APIs are retired.
 - [Architecture Decision Records](adr/) — the significant design choices, in the
   order they were made.
-- [pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate) — per-symbol API
+- [pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate/engine) — per-symbol API
   reference.
 
 ## The studio
