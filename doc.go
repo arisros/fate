@@ -18,13 +18,16 @@
 //
 // # Packages
 //
-// The root package holds only [Version]. The engine is split by concern:
+// The engine is split by concern:
 //
 //   - [github.com/arisros/fate/engine]: build a Machine and run it as an Actor.
 //   - [github.com/arisros/fate/action]: actions, guards and conditions.
 //   - [github.com/arisros/fate/effect]: timers and invocations a host drives.
 //   - [github.com/arisros/fate/persist]: the active configuration and snapshots.
 //   - [github.com/arisros/fate/describe]: the type-erased view tooling reads.
+//
+// The root package holds [Version] and deprecated aliases for the names that
+// lived here before the split; new code imports the packages above.
 //
 // Built on those: render, diff, snapshot, httphandler and testing. The
 // Temporal integration is the separate github.com/arisros/fate/temporal module.
