@@ -4,7 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	sc "github.com/arisros/fate"
+	"github.com/arisros/fate/describe"
+	"github.com/arisros/fate/engine"
 	"github.com/arisros/fate/render"
 )
 
@@ -15,7 +16,7 @@ type mNext struct{}
 func (mNext) isMEvt()           {}
 func (mNext) EventName() string { return "NEXT" }
 
-func mermaidDescriptor(t *testing.T, build func() (*sc.Machine[mCtx, mEvt], error)) sc.MachineDescriptor {
+func mermaidDescriptor(t *testing.T, build func() (*engine.Machine[mCtx, mEvt], error)) describe.MachineDescriptor {
 	t.Helper()
 	m, err := build()
 	if err != nil {
@@ -24,35 +25,35 @@ func mermaidDescriptor(t *testing.T, build func() (*sc.Machine[mCtx, mEvt], erro
 	return m.Describe()
 }
 
-func buildTraffic() (*sc.Machine[mCtx, mEvt], error) {
-	return sc.CreateMachine(sc.MachineConfig[mCtx, mEvt]{
+func buildTraffic() (*engine.Machine[mCtx, mEvt], error) {
+	return engine.CreateMachine(engine.MachineConfig[mCtx, mEvt]{
 		ID:      "traffic-light",
 		Initial: "red",
-		States: map[string]sc.StateNodeConfig[mCtx, mEvt]{
-			"red":    {On: map[string][]sc.TransitionConfig[mCtx, mEvt]{"NEXT": {{Target: "green"}}}},
-			"green":  {On: map[string][]sc.TransitionConfig[mCtx, mEvt]{"NEXT": {{Target: "yellow"}}}},
-			"yellow": {On: map[string][]sc.TransitionConfig[mCtx, mEvt]{"NEXT": {{Target: "red"}}}},
+		States: map[string]engine.StateNodeConfig[mCtx, mEvt]{
+			"red":    {On: map[string][]engine.TransitionConfig[mCtx, mEvt]{"NEXT": {{Target: "green"}}}},
+			"green":  {On: map[string][]engine.TransitionConfig[mCtx, mEvt]{"NEXT": {{Target: "yellow"}}}},
+			"yellow": {On: map[string][]engine.TransitionConfig[mCtx, mEvt]{"NEXT": {{Target: "red"}}}},
 		},
 	})
 }
 
-func buildParallelMermaid() (*sc.Machine[mCtx, mEvt], error) {
-	region := func(initial string) sc.StateNodeConfig[mCtx, mEvt] {
-		return sc.StateNodeConfig[mCtx, mEvt]{
+func buildParallelMermaid() (*engine.Machine[mCtx, mEvt], error) {
+	region := func(initial string) engine.StateNodeConfig[mCtx, mEvt] {
+		return engine.StateNodeConfig[mCtx, mEvt]{
 			Initial: initial,
-			States: map[string]sc.StateNodeConfig[mCtx, mEvt]{
-				initial: {On: map[string][]sc.TransitionConfig[mCtx, mEvt]{"NEXT": {{Target: "done"}}}},
-				"done":  {Type: sc.NodeFinal},
+			States: map[string]engine.StateNodeConfig[mCtx, mEvt]{
+				initial: {On: map[string][]engine.TransitionConfig[mCtx, mEvt]{"NEXT": {{Target: "done"}}}},
+				"done":  {Type: engine.NodeFinal},
 			},
 		}
 	}
-	return sc.CreateMachine(sc.MachineConfig[mCtx, mEvt]{
+	return engine.CreateMachine(engine.MachineConfig[mCtx, mEvt]{
 		ID:      "para",
 		Initial: "active",
-		States: map[string]sc.StateNodeConfig[mCtx, mEvt]{
+		States: map[string]engine.StateNodeConfig[mCtx, mEvt]{
 			"active": {
-				Type: sc.NodeParallel,
-				States: map[string]sc.StateNodeConfig[mCtx, mEvt]{
+				Type: engine.NodeParallel,
+				States: map[string]engine.StateNodeConfig[mCtx, mEvt]{
 					"a": region("a1"),
 					"b": region("b1"),
 				},
@@ -124,11 +125,11 @@ func TestMermaid_ActiveHighlight(t *testing.T) {
 }
 
 func TestMermaid_GuardActionInternalLabels(t *testing.T) {
-	d := sc.MachineDescriptor{
+	d := describe.MachineDescriptor{
 		ID:      "labels",
 		Initial: "a",
-		States: map[string]sc.StateNodeDescriptor{
-			"a": {Type: "atomic", On: map[string][]sc.TransitionDescriptor{
+		States: map[string]describe.StateNodeDescriptor{
+			"a": {Type: "atomic", On: map[string][]describe.TransitionDescriptor{
 				"NEXT": {{Target: "b", Guard: "isReady", Actions: []string{"bump"}}},
 				"PING": {{Target: "a", Internal: true}},
 			}},

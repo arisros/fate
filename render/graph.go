@@ -8,7 +8,8 @@ import (
 	"encoding/json"
 	"sort"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/action"
+	"github.com/arisros/fate/describe"
 )
 
 // GraphNode is one state in the graph. Hierarchy is expressed via Parent
@@ -31,14 +32,14 @@ type GraphNode struct {
 // the triggering event (the studio anchors the edge to the source node's
 // matching event row, Stately-style).
 type GraphEdge struct {
-	ID       string         `json:"id"`
-	Source   string         `json:"source"`
-	Event    string         `json:"event"`
-	Target   string         `json:"target"`
-	Guard    string         `json:"guard,omitempty"`
-	Actions  []string       `json:"actions,omitempty"`
-	Internal bool           `json:"internal,omitempty"`
-	CondMeta *fate.CondMeta `json:"cond_meta,omitempty"`
+	ID       string           `json:"id"`
+	Source   string           `json:"source"`
+	Event    string           `json:"event"`
+	Target   string           `json:"target"`
+	Guard    string           `json:"guard,omitempty"`
+	Actions  []string         `json:"actions,omitempty"`
+	Internal bool             `json:"internal,omitempty"`
+	CondMeta *action.CondMeta `json:"cond_meta,omitempty"`
 }
 
 // Graph is the full resolved structure for one machine.
@@ -50,15 +51,15 @@ type Graph struct {
 }
 
 // GraphJSON converts a MachineDescriptor into a resolved Graph.
-func GraphJSON(d fate.MachineDescriptor) Graph {
+func GraphJSON(d describe.MachineDescriptor) Graph {
 	idx := indexDescriptor(d)
 	g := Graph{ID: d.ID}
 	if d.Initial != "" {
 		g.Initial = nodeID(d.Initial)
 	}
 
-	var walk func(name string, node fate.StateNodeDescriptor, path, parentID, parentInitial string)
-	walk = func(name string, node fate.StateNodeDescriptor, path, parentID, parentInitial string) {
+	var walk func(name string, node describe.StateNodeDescriptor, path, parentID, parentInitial string)
+	walk = func(name string, node describe.StateNodeDescriptor, path, parentID, parentInitial string) {
 		n := GraphNode{
 			ID:            nodeID(path),
 			Label:         name,
@@ -99,7 +100,7 @@ func GraphJSON(d fate.MachineDescriptor) Graph {
 	return g
 }
 
-func edgeFor(srcPath, event string, t fate.TransitionDescriptor, idx descriptorIndex, ei *int) GraphEdge {
+func edgeFor(srcPath, event string, t describe.TransitionDescriptor, idx descriptorIndex, ei *int) GraphEdge {
 	tgtPath := resolveDescriptorTarget(srcPath, t.Target, idx)
 	*ei++
 	return GraphEdge{

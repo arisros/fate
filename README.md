@@ -40,6 +40,7 @@ a durable runtime such as [Temporal](https://temporal.io).
 
 - [Install](#install)
 - [Quickstart](#quickstart)
+- [Packages](#packages)
 - [Feature map](#feature-map)
 - [Documentation](#documentation)
 - [Tooling](#tooling)
@@ -70,7 +71,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/action"
+	"github.com/arisros/fate/engine"
 )
 
 type Ctx struct{ Count int }
@@ -83,18 +85,18 @@ func (Inc) isEvt()   {}
 func (Reset) isEvt() {}
 
 func main() {
-	m, err := fate.CreateMachine(fate.MachineConfig[Ctx, Evt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[Ctx, Evt]{
 		ID:      "counter",
 		Initial: "active",
 		Context: Ctx{},
-		States: map[string]fate.StateNodeConfig[Ctx, Evt]{
+		States: map[string]engine.StateNodeConfig[Ctx, Evt]{
 			"active": {
-				On: map[string][]fate.TransitionConfig[Ctx, Evt]{
-					"Inc": {{Actions: []fate.Action[Ctx, Evt]{
-						fate.Assign(func(c Ctx, _ Evt) Ctx { c.Count++; return c }),
+				On: map[string][]engine.TransitionConfig[Ctx, Evt]{
+					"Inc": {{Actions: []action.Action[Ctx, Evt]{
+						action.Assign(func(c Ctx, _ Evt) Ctx { c.Count++; return c }),
 					}}},
-					"Reset": {{Target: "active", Actions: []fate.Action[Ctx, Evt]{
-						fate.Assign(func(c Ctx, _ Evt) Ctx { c.Count = 0; return c }),
+					"Reset": {{Target: "active", Actions: []action.Action[Ctx, Evt]{
+						action.Assign(func(c Ctx, _ Evt) Ctx { c.Count = 0; return c }),
 					}}},
 				},
 			},
@@ -104,7 +106,7 @@ func main() {
 		panic(err)
 	}
 
-	a := fate.NewActor(m)
+	a := engine.NewActor(m)
 	_ = a.Start(context.Background())
 	_ = a.Send(context.Background(), Inc{})
 	_ = a.Send(context.Background(), Inc{})
@@ -113,7 +115,7 @@ func main() {
 
 	// Persist and restore. The restored actor is identical.
 	blob, _ := a.Persist()
-	b, _ := fate.NewActorFromSnapshot[Ctx, Evt](m, blob)
+	b, _ := engine.NewActorFromSnapshot[Ctx, Evt](m, blob)
 	fmt.Println(b.Snapshot().Context.Count) // 2
 }
 ```
@@ -121,7 +123,18 @@ func main() {
 Runnable programs for hierarchical, parallel, history, delayed, and
 invoked-actor machines live in [`examples/`](./examples). The package's testable
 examples are also on
-[pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate#pkg-examples).
+[pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate/engine#pkg-examples).
+
+## Packages
+
+| Package | What it holds |
+| --- | --- |
+| `engine` | `CreateMachine`, `Setup`, `Machine`, `Actor`: build a machine and run it |
+| `action` | Actions (`Assign`, `Raise`, `Log`), guards (`And`, `Or`, `Not`), conditions (`InState`) |
+| `effect` | Timers and invocations a host drives (`PendingTimer`, `Invocation`) |
+| `persist` | The active configuration (`StateValue`) and `Snapshot` |
+| `describe` | The JSON `MachineDescriptor` and `UIState` view models for tooling |
+| `render`, `diff`, `snapshot`, `httphandler`, `testing` | Optional helpers built on the engine |
 
 ## Feature map
 

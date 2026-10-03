@@ -16,38 +16,38 @@
 // machines unmanageable for real workflows. fate is a statechart engine; the
 // name is not an acronym.
 //
+// # Packages
+//
+// The engine is split by concern:
+//
+//   - [github.com/arisros/fate/engine]: build a Machine and run it as an Actor.
+//   - [github.com/arisros/fate/action]: actions, guards and conditions.
+//   - [github.com/arisros/fate/effect]: timers and invocations a host drives.
+//   - [github.com/arisros/fate/persist]: the active configuration and snapshots.
+//   - [github.com/arisros/fate/describe]: the type-erased view tooling reads.
+//
+// The root package holds [Version] and deprecated aliases for the names that
+// lived here before the split; new code imports the packages above.
+//
+// Built on those: render, diff, snapshot, httphandler and testing. The
+// Temporal integration is the separate github.com/arisros/fate/temporal module.
+//
 // # Design principles
 //
 //   - Zero dependencies: the root module imports only the standard library.
 //     Anything that needs an external dependency (the Temporal integration)
 //     lives in a separate module so adopters opt in explicitly.
-//   - Determinism: a [Machine] is immutable once constructed and is safe to
+//   - Determinism: a Machine is immutable once constructed and is safe to
 //     share across goroutines. All observable iteration is ordered. Given the
-//     same machine and the same event sequence, an [Actor] produces a
+//     same machine and the same event sequence, an Actor produces a
 //     byte-identical persisted snapshot. This makes fate safe to drive from
 //     deterministic execution environments such as Temporal workflows.
 //   - Persistence first: actor state serialises to and restores from JSON via
-//     [Actor.Persist] and [NewActorFromSnapshot]. The snapshot shape is
-//     versioned so it can evolve without breaking stored data.
+//     Actor.Persist and NewActorFromSnapshot. The snapshot shape is versioned
+//     so it can evolve without breaking stored data.
 //
-// # Two ways to define a machine
-//
-// Define a machine directly with [CreateMachine] and the declarative
-// [MachineConfig] / [StateNodeConfig] / [TransitionConfig] structs, or use the
-// type-safe [Setup] builder to register named guards, actions and actors once
-// and reference them by name from the config. Both produce the same immutable
-// [Machine].
-//
-// # Driving a machine
-//
-// Construct an [Actor] from a [Machine], [Actor.Start] it, and feed it events
-// with [Actor.Send]. Read the current state with [Actor.Snapshot], observe
-// changes with [Actor.Subscribe], and persist/restore with [Actor.Persist] and
-// [NewActorFromSnapshot]. To drive a machine inside a Temporal workflow, use
-// the WorkflowActor from the github.com/arisros/fate/temporal module instead of
-// a bare [Actor].
-//
-// See the examples directory and the package examples for runnable machines.
+// See the engine package for how to define and drive a machine, and the
+// examples directory for runnable machines.
 package fate
 
 // Version is the semantic version of the fate library. It is updated by the

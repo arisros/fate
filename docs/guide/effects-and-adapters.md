@@ -18,8 +18,8 @@ A state declares transitions keyed by a delay:
 
 ```go
 "waiting": {
-    On:    map[string][]fate.TransitionConfig[Ctx, Evt]{"Cancel": {{Target: "idle"}}},
-    After: map[time.Duration][]fate.TransitionConfig[Ctx, Evt]{
+    On:    map[string][]engine.TransitionConfig[Ctx, Evt]{"Cancel": {{Target: "idle"}}},
+    After: map[time.Duration][]engine.TransitionConfig[Ctx, Evt]{
         30 * time.Second: {{Target: "expired"}},
     },
 },
@@ -44,14 +44,14 @@ A state declares work to run while it is active:
 
 ```go
 "charging": {
-    Invoke: []fate.Invocation[Ctx, Evt]{{
+    Invoke: []effect.Invocation[Ctx, Evt]{{
         ID:      "charge",
         Src:     "charge-card",                 // an opaque name the adapter understands
         Input:   func(c Ctx) any { return c.Amount },
         OnDone:  func(out any) Evt { return Charged{ref: out} },
         OnError: func(err error) Evt { return ChargeFailed{} },
     }},
-    On: map[string][]fate.TransitionConfig[Ctx, Evt]{
+    On: map[string][]engine.TransitionConfig[Ctx, Evt]{
         "Charged":      {{Target: "done"}},
         "ChargeFailed": {{Target: "retry"}},
     },
