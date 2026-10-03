@@ -21,6 +21,9 @@ of Batch 1 can be built against a stable target.
 
 ### 1. Package and module names
 
+> Superseded by [ADR-0007](./0007-package-layout.md): the engine now lives in
+> `engine`, `action`, `effect`, `persist` and `describe`.
+
 - Root package is **`fate`**. Callers write `fate.CreateMachine`,
   `fate.NewActor`, `fate.Assign`. The POC's `sc` alias convention is dropped;
   `fate` is already short.

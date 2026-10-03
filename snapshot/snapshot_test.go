@@ -5,7 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/describe"
+	"github.com/arisros/fate/engine"
 	"github.com/arisros/fate/render"
 	"github.com/arisros/fate/snapshot"
 )
@@ -15,15 +16,15 @@ type tlEvt struct{ name string }
 
 func (e tlEvt) EventName() string { return e.name }
 
-func trafficLight(t *testing.T) *fate.Machine[tlCtx, tlEvt] {
+func trafficLight(t *testing.T) *engine.Machine[tlCtx, tlEvt] {
 	t.Helper()
-	m, err := fate.CreateMachine(fate.MachineConfig[tlCtx, tlEvt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[tlCtx, tlEvt]{
 		ID:      "traffic-light",
 		Initial: "red",
-		States: map[string]fate.StateNodeConfig[tlCtx, tlEvt]{
-			"red":    {On: map[string][]fate.TransitionConfig[tlCtx, tlEvt]{"TIMER": {{Target: "green"}}}},
-			"green":  {On: map[string][]fate.TransitionConfig[tlCtx, tlEvt]{"TIMER": {{Target: "yellow"}}}},
-			"yellow": {On: map[string][]fate.TransitionConfig[tlCtx, tlEvt]{"TIMER": {{Target: "red"}}}},
+		States: map[string]engine.StateNodeConfig[tlCtx, tlEvt]{
+			"red":    {On: map[string][]engine.TransitionConfig[tlCtx, tlEvt]{"TIMER": {{Target: "green"}}}},
+			"green":  {On: map[string][]engine.TransitionConfig[tlCtx, tlEvt]{"TIMER": {{Target: "yellow"}}}},
+			"yellow": {On: map[string][]engine.TransitionConfig[tlCtx, tlEvt]{"TIMER": {{Target: "red"}}}},
 		},
 	})
 	if err != nil {
@@ -50,7 +51,7 @@ func TestEmitRoundTrip(t *testing.T) {
 		t.Fatalf("ReadFile: %v", err)
 	}
 
-	loaded, err := fate.LoadDescriptor(data)
+	loaded, err := describe.LoadDescriptor(data)
 	if err != nil {
 		t.Fatalf("LoadDescriptor: %v", err)
 	}

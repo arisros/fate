@@ -13,7 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/action"
+	"github.com/arisros/fate/describe"
+	"github.com/arisros/fate/effect"
+	"github.com/arisros/fate/engine"
 	"github.com/arisros/fate/httphandler"
 )
 
@@ -43,40 +46,40 @@ func (evtWorkDone) EventName() string   { return "WORK_DONE" }
 func (evtWorkFailed) isDemoEvt()        {}
 func (evtWorkFailed) EventName() string { return "WORK_FAILED" }
 
-func demoMachine(t *testing.T) *fate.Machine[demoCtx, demoEvt] {
+func demoMachine(t *testing.T) *engine.Machine[demoCtx, demoEvt] {
 	t.Helper()
-	m, err := fate.CreateMachine(fate.MachineConfig[demoCtx, demoEvt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[demoCtx, demoEvt]{
 		ID:      "demo",
 		Initial: "idle",
-		States: map[string]fate.StateNodeConfig[demoCtx, demoEvt]{
+		States: map[string]engine.StateNodeConfig[demoCtx, demoEvt]{
 			"idle": {
-				On: map[string][]fate.TransitionConfig[demoCtx, demoEvt]{
+				On: map[string][]engine.TransitionConfig[demoCtx, demoEvt]{
 					"GO": {{
 						Target:  "running",
-						Actions: []fate.Action[demoCtx, demoEvt]{fate.Assign(func(c demoCtx, _ demoEvt) demoCtx { c.Count++; return c })},
+						Actions: []action.Action[demoCtx, demoEvt]{action.Assign(func(c demoCtx, _ demoEvt) demoCtx { c.Count++; return c })},
 					}},
 				},
-				After: map[time.Duration][]fate.TransitionConfig[demoCtx, demoEvt]{
+				After: map[time.Duration][]engine.TransitionConfig[demoCtx, demoEvt]{
 					10 * time.Millisecond: {{Target: "timedOut"}},
 				},
 			},
 			"running": {
-				UIState: fate.UIStateOf(func(c demoCtx) runningView { return runningView{Runs: c.Count} }),
-				Invoke: []fate.Invocation[demoCtx, demoEvt]{{
+				UIState: describe.UIStateOf(func(c demoCtx) runningView { return runningView{Runs: c.Count} }),
+				Invoke: []effect.Invocation[demoCtx, demoEvt]{{
 					ID:      "work",
 					Src:     "activity:work",
 					OnDone:  func(any) demoEvt { return evtWorkDone{} },
 					OnError: func(error) demoEvt { return evtWorkFailed{} },
 				}},
-				On: map[string][]fate.TransitionConfig[demoCtx, demoEvt]{
+				On: map[string][]engine.TransitionConfig[demoCtx, demoEvt]{
 					"STOP":        {{Target: "idle"}},
 					"WORK_DONE":   {{Target: "done"}},
 					"WORK_FAILED": {{Target: "failed"}},
 				},
 			},
 			"timedOut": {},
-			"done":     {Type: fate.NodeFinal},
-			"failed":   {Type: fate.NodeFinal},
+			"done":     {Type: engine.NodeFinal},
+			"failed":   {Type: engine.NodeFinal},
 		},
 	})
 	if err != nil {
@@ -209,19 +212,19 @@ func TestSnapshot_UIState(t *testing.T) {
 }
 
 func TestSnapshot_UIStatePanicKeepsSessionUsable(t *testing.T) {
-	m, err := fate.CreateMachine(fate.MachineConfig[demoCtx, demoEvt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[demoCtx, demoEvt]{
 		ID:      "panics",
 		Initial: "idle",
-		States: map[string]fate.StateNodeConfig[demoCtx, demoEvt]{
+		States: map[string]engine.StateNodeConfig[demoCtx, demoEvt]{
 			"idle": {
-				UIState: fate.UIStateOf(func(c demoCtx) int {
+				UIState: describe.UIStateOf(func(c demoCtx) int {
 					if c.Count > 0 {
 						panic("boom")
 					}
 					return 0
 				}),
-				On: map[string][]fate.TransitionConfig[demoCtx, demoEvt]{
-					"GO": {{Actions: []fate.Action[demoCtx, demoEvt]{fate.Assign(func(c demoCtx, _ demoEvt) demoCtx { c.Count++; return c })}}},
+				On: map[string][]engine.TransitionConfig[demoCtx, demoEvt]{
+					"GO": {{Actions: []action.Action[demoCtx, demoEvt]{action.Assign(func(c demoCtx, _ demoEvt) demoCtx { c.Count++; return c })}}},
 				},
 			},
 		},
@@ -458,21 +461,21 @@ func TestWrongMethod(t *testing.T) {
 }
 
 func TestCompound_NestedAvailableEvents(t *testing.T) {
-	m, err := fate.CreateMachine(fate.MachineConfig[demoCtx, demoEvt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[demoCtx, demoEvt]{
 		ID:      "compound",
 		Initial: "outer",
-		States: map[string]fate.StateNodeConfig[demoCtx, demoEvt]{
+		States: map[string]engine.StateNodeConfig[demoCtx, demoEvt]{
 			"outer": {
 				Initial: "inner",
-				States: map[string]fate.StateNodeConfig[demoCtx, demoEvt]{
+				States: map[string]engine.StateNodeConfig[demoCtx, demoEvt]{
 					"inner": {
-						On: map[string][]fate.TransitionConfig[demoCtx, demoEvt]{
+						On: map[string][]engine.TransitionConfig[demoCtx, demoEvt]{
 							"GO": {{Target: "done"}},
 						},
 					},
 				},
 			},
-			"done": {Type: fate.NodeFinal},
+			"done": {Type: engine.NodeFinal},
 		},
 	})
 	if err != nil {

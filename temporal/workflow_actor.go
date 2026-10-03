@@ -27,7 +27,9 @@ import (
 
 	"go.temporal.io/sdk/workflow"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/effect"
+	"github.com/arisros/fate/engine"
+	"github.com/arisros/fate/persist"
 )
 
 // Options configures how a WorkflowActor maps invocations and events onto
@@ -48,17 +50,17 @@ type Options struct {
 // drive the machine to completion.
 type WorkflowActor[Ctx any, Evt any] struct {
 	ctx   workflow.Context
-	actor *fate.Actor[Ctx, Evt]
+	actor *engine.Actor[Ctx, Evt]
 	opts  Options
 }
 
 // NewWorkflowActor wraps a fresh actor for the given machine and starts it.
 func NewWorkflowActor[Ctx any, Evt any](
 	ctx workflow.Context,
-	m *fate.Machine[Ctx, Evt],
+	m *engine.Machine[Ctx, Evt],
 	opts Options,
 ) (*WorkflowActor[Ctx, Evt], error) {
-	a := fate.NewActor(m)
+	a := engine.NewActor(m)
 	if err := a.Start(context.Background()); err != nil {
 		return nil, err
 	}
@@ -70,11 +72,11 @@ func NewWorkflowActor[Ctx any, Evt any](
 // its restored configuration, so Run re-arms them.
 func NewWorkflowActorFromSnapshot[Ctx any, Evt any](
 	ctx workflow.Context,
-	m *fate.Machine[Ctx, Evt],
+	m *engine.Machine[Ctx, Evt],
 	snapshot []byte,
 	opts Options,
 ) (*WorkflowActor[Ctx, Evt], error) {
-	a, err := fate.NewActorFromSnapshot[Ctx, Evt](m, snapshot)
+	a, err := engine.NewActorFromSnapshot[Ctx, Evt](m, snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +105,7 @@ func (w *WorkflowActor[Ctx, Evt]) Send(evt Evt) error {
 }
 
 // Snapshot returns the hosted actor's current snapshot.
-func (w *WorkflowActor[Ctx, Evt]) Snapshot() fate.Snapshot[Ctx] { return w.actor.Snapshot() }
+func (w *WorkflowActor[Ctx, Evt]) Snapshot() persist.Snapshot[Ctx] { return w.actor.Snapshot() }
 
 // Persist returns the hosted actor's persisted snapshot, e.g. to pass to
 // continue-as-new.
@@ -120,19 +122,19 @@ type inflight struct {
 // state) or the machine can make no further progress, reconciling Temporal
 // timers and activities against the actor's pending effects after every step
 // and consuming signals if configured. It returns the final snapshot.
-func (w *WorkflowActor[Ctx, Evt]) Run() (fate.Snapshot[Ctx], error) {
+func (w *WorkflowActor[Ctx, Evt]) Run() (persist.Snapshot[Ctx], error) {
 	ctx := w.ctx
 	actCtx := workflow.WithActivityOptions(ctx, w.opts.ActivityOptions)
 
-	timers := map[fate.TimerID]inflight{}
-	invokes := map[fate.InvokeID]inflight{}
+	timers := map[effect.TimerID]inflight{}
+	invokes := map[effect.InvokeID]inflight{}
 
 	var signalCh workflow.ReceiveChannel
 	if w.opts.SignalName != "" {
 		signalCh = workflow.GetSignalChannel(ctx, w.opts.SignalName)
 	}
 
-	for w.actor.Snapshot().Status == fate.StatusRunning {
+	for w.actor.Snapshot().Status == persist.StatusRunning {
 		w.reconcileTimers(ctx, timers)
 		w.reconcileInvocations(actCtx, invokes)
 
@@ -160,9 +162,9 @@ func (w *WorkflowActor[Ctx, Evt]) Run() (fate.Snapshot[Ctx], error) {
 
 // reconcileTimers cancels Temporal timers whose state has exited and starts a
 // timer for every newly-armed pending timer. Iteration is deterministic.
-func (w *WorkflowActor[Ctx, Evt]) reconcileTimers(ctx workflow.Context, timers map[fate.TimerID]inflight) {
+func (w *WorkflowActor[Ctx, Evt]) reconcileTimers(ctx workflow.Context, timers map[effect.TimerID]inflight) {
 	pending := w.actor.PendingTimers()
-	want := make(map[fate.TimerID]fate.PendingTimer, len(pending))
+	want := make(map[effect.TimerID]effect.PendingTimer, len(pending))
 	for _, pt := range pending {
 		want[pt.ID] = pt
 	}
@@ -183,9 +185,9 @@ func (w *WorkflowActor[Ctx, Evt]) reconcileTimers(ctx workflow.Context, timers m
 
 // reconcileInvocations cancels activities whose state has exited and starts an
 // activity for every newly-armed pending invocation. Iteration is deterministic.
-func (w *WorkflowActor[Ctx, Evt]) reconcileInvocations(actCtx workflow.Context, invokes map[fate.InvokeID]inflight) {
+func (w *WorkflowActor[Ctx, Evt]) reconcileInvocations(actCtx workflow.Context, invokes map[effect.InvokeID]inflight) {
 	pending := w.actor.PendingInvocations()
-	want := make(map[fate.InvokeID]fate.PendingInvocation, len(pending))
+	want := make(map[effect.InvokeID]effect.PendingInvocation, len(pending))
 	for _, pi := range pending {
 		want[pi.ID] = pi
 	}
@@ -207,7 +209,7 @@ func (w *WorkflowActor[Ctx, Evt]) reconcileInvocations(actCtx workflow.Context, 
 // addTimerBranches registers every in-flight timer with the selector in
 // deterministic (sorted) order; on fire it delivers the elapsed delay to the
 // actor and removes the timer from the in-flight set.
-func (w *WorkflowActor[Ctx, Evt]) addTimerBranches(ctx workflow.Context, sel workflow.Selector, timers map[fate.TimerID]inflight) {
+func (w *WorkflowActor[Ctx, Evt]) addTimerBranches(ctx workflow.Context, sel workflow.Selector, timers map[effect.TimerID]inflight) {
 	for _, id := range sortedTimerIDs(timers) {
 		id := id
 		fl := timers[id]
@@ -223,7 +225,7 @@ func (w *WorkflowActor[Ctx, Evt]) addTimerBranches(ctx workflow.Context, sel wor
 // addInvokeBranches registers every in-flight activity with the selector in
 // deterministic (sorted) order; on completion it resolves or rejects the
 // invocation and removes it from the in-flight set.
-func (w *WorkflowActor[Ctx, Evt]) addInvokeBranches(ctx workflow.Context, sel workflow.Selector, invokes map[fate.InvokeID]inflight) {
+func (w *WorkflowActor[Ctx, Evt]) addInvokeBranches(ctx workflow.Context, sel workflow.Selector, invokes map[effect.InvokeID]inflight) {
 	for _, id := range sortedInvokeIDs(invokes) {
 		id := id
 		fl := invokes[id]
@@ -239,8 +241,8 @@ func (w *WorkflowActor[Ctx, Evt]) addInvokeBranches(ctx workflow.Context, sel wo
 	}
 }
 
-func sortedTimerIDs(m map[fate.TimerID]inflight) []fate.TimerID {
-	ids := make([]fate.TimerID, 0, len(m))
+func sortedTimerIDs(m map[effect.TimerID]inflight) []effect.TimerID {
+	ids := make([]effect.TimerID, 0, len(m))
 	for id := range m {
 		ids = append(ids, id)
 	}
@@ -248,8 +250,8 @@ func sortedTimerIDs(m map[fate.TimerID]inflight) []fate.TimerID {
 	return ids
 }
 
-func sortedInvokeIDs(m map[fate.InvokeID]inflight) []fate.InvokeID {
-	ids := make([]fate.InvokeID, 0, len(m))
+func sortedInvokeIDs(m map[effect.InvokeID]inflight) []effect.InvokeID {
+	ids := make([]effect.InvokeID, 0, len(m))
 	for id := range m {
 		ids = append(ids, id)
 	}

@@ -6,38 +6,38 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/engine"
 	"github.com/arisros/fate/render"
 )
 
 func main() {
-	m, err := fate.CreateMachine(fate.MachineConfig[struct{}, string]{
+	m, err := engine.CreateMachine(engine.MachineConfig[struct{}, string]{
 		ID:      "traffic",
 		Initial: "red",
-		States: map[string]fate.StateNodeConfig[struct{}, string]{
+		States: map[string]engine.StateNodeConfig[struct{}, string]{
 			"red": {
 				Initial: "stop",
-				States: map[string]fate.StateNodeConfig[struct{}, string]{
-					"stop": {On: map[string][]fate.TransitionConfig[struct{}, string]{
+				States: map[string]engine.StateNodeConfig[struct{}, string]{
+					"stop": {On: map[string][]engine.TransitionConfig[struct{}, string]{
 						"WALK": {{Target: "walk"}},
 					}},
-					"walk": {On: map[string][]fate.TransitionConfig[struct{}, string]{
+					"walk": {On: map[string][]engine.TransitionConfig[struct{}, string]{
 						"WAIT": {{Target: "stop"}},
 					}},
 				},
-				On: map[string][]fate.TransitionConfig[struct{}, string]{
+				On: map[string][]engine.TransitionConfig[struct{}, string]{
 					"NEXT": {{Target: "green"}},
 				},
 			},
-			"green":  {On: map[string][]fate.TransitionConfig[struct{}, string]{"NEXT": {{Target: "yellow"}}}},
-			"yellow": {On: map[string][]fate.TransitionConfig[struct{}, string]{"NEXT": {{Target: "red"}}}},
+			"green":  {On: map[string][]engine.TransitionConfig[struct{}, string]{"NEXT": {{Target: "yellow"}}}},
+			"yellow": {On: map[string][]engine.TransitionConfig[struct{}, string]{"NEXT": {{Target: "red"}}}},
 		},
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	a := fate.NewActor(m)
+	a := engine.NewActor(m)
 	_ = a.Start(context.Background())
 	fmt.Println(a.Snapshot().Value.Path()) // red.stop
 

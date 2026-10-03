@@ -16,7 +16,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	sc "github.com/arisros/fate"
+	"github.com/arisros/fate/describe"
+	"github.com/arisros/fate/engine"
 	"github.com/arisros/fate/render"
 )
 
@@ -24,7 +25,7 @@ var updateGolden = flag.Bool("update", false, "regenerate golden files under tes
 
 type goldenCase struct {
 	name       string
-	build      func(t *testing.T) sc.MachineDescriptor
+	build      func(t *testing.T) describe.MachineDescriptor
 	highlight  map[string]rune
 	goldenFile string
 }
@@ -87,15 +88,15 @@ type gldEvtNext struct{}
 func (gldEvtNext) isGldEvt()         {}
 func (gldEvtNext) EventName() string { return "NEXT" }
 
-func buildTrafficLightFixture(t *testing.T) sc.MachineDescriptor {
+func buildTrafficLightFixture(t *testing.T) describe.MachineDescriptor {
 	t.Helper()
-	m, err := sc.CreateMachine(sc.MachineConfig[gldCtx, gldEvt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[gldCtx, gldEvt]{
 		ID:      "traffic-light",
 		Initial: "red",
-		States: map[string]sc.StateNodeConfig[gldCtx, gldEvt]{
-			"red":    {On: map[string][]sc.TransitionConfig[gldCtx, gldEvt]{"NEXT": {{Target: "green"}}}},
-			"green":  {On: map[string][]sc.TransitionConfig[gldCtx, gldEvt]{"NEXT": {{Target: "yellow"}}}},
-			"yellow": {On: map[string][]sc.TransitionConfig[gldCtx, gldEvt]{"NEXT": {{Target: "red"}}}},
+		States: map[string]engine.StateNodeConfig[gldCtx, gldEvt]{
+			"red":    {On: map[string][]engine.TransitionConfig[gldCtx, gldEvt]{"NEXT": {{Target: "green"}}}},
+			"green":  {On: map[string][]engine.TransitionConfig[gldCtx, gldEvt]{"NEXT": {{Target: "yellow"}}}},
+			"yellow": {On: map[string][]engine.TransitionConfig[gldCtx, gldEvt]{"NEXT": {{Target: "red"}}}},
 		},
 	})
 	if err != nil {
@@ -104,26 +105,26 @@ func buildTrafficLightFixture(t *testing.T) sc.MachineDescriptor {
 	return m.Describe()
 }
 
-func buildParallelGoldenFixture(t *testing.T) sc.MachineDescriptor {
+func buildParallelGoldenFixture(t *testing.T) describe.MachineDescriptor {
 	t.Helper()
-	region := func(workName string) sc.StateNodeConfig[gldCtx, gldEvt] {
-		return sc.StateNodeConfig[gldCtx, gldEvt]{
+	region := func(workName string) engine.StateNodeConfig[gldCtx, gldEvt] {
+		return engine.StateNodeConfig[gldCtx, gldEvt]{
 			Initial: workName,
-			States: map[string]sc.StateNodeConfig[gldCtx, gldEvt]{
-				workName: {On: map[string][]sc.TransitionConfig[gldCtx, gldEvt]{
+			States: map[string]engine.StateNodeConfig[gldCtx, gldEvt]{
+				workName: {On: map[string][]engine.TransitionConfig[gldCtx, gldEvt]{
 					"NEXT": {{Target: "done"}},
 				}},
-				"done": {Type: sc.NodeFinal},
+				"done": {Type: engine.NodeFinal},
 			},
 		}
 	}
-	m, err := sc.CreateMachine(sc.MachineConfig[gldCtx, gldEvt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[gldCtx, gldEvt]{
 		ID:      "media-player",
 		Initial: "playing",
-		States: map[string]sc.StateNodeConfig[gldCtx, gldEvt]{
+		States: map[string]engine.StateNodeConfig[gldCtx, gldEvt]{
 			"playing": {
-				Type: sc.NodeParallel,
-				States: map[string]sc.StateNodeConfig[gldCtx, gldEvt]{
+				Type: engine.NodeParallel,
+				States: map[string]engine.StateNodeConfig[gldCtx, gldEvt]{
 					"audio":    region("decoding_audio"),
 					"captions": region("rendering_captions"),
 					"video":    region("decoding_video"),
@@ -137,22 +138,22 @@ func buildParallelGoldenFixture(t *testing.T) sc.MachineDescriptor {
 	return m.Describe()
 }
 
-func buildLinearGoldenFixture(t *testing.T) sc.MachineDescriptor {
+func buildLinearGoldenFixture(t *testing.T) describe.MachineDescriptor {
 	t.Helper()
-	m, err := sc.CreateMachine(sc.MachineConfig[gldCtx, gldEvt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[gldCtx, gldEvt]{
 		ID:      "pipeline",
 		Initial: "ingest",
-		States: map[string]sc.StateNodeConfig[gldCtx, gldEvt]{
-			"ingest": {On: map[string][]sc.TransitionConfig[gldCtx, gldEvt]{
+		States: map[string]engine.StateNodeConfig[gldCtx, gldEvt]{
+			"ingest": {On: map[string][]engine.TransitionConfig[gldCtx, gldEvt]{
 				"NEXT": {{Target: "validate"}},
 			}},
-			"validate": {On: map[string][]sc.TransitionConfig[gldCtx, gldEvt]{
+			"validate": {On: map[string][]engine.TransitionConfig[gldCtx, gldEvt]{
 				"NEXT": {{Target: "transform"}},
 			}},
-			"transform": {On: map[string][]sc.TransitionConfig[gldCtx, gldEvt]{
+			"transform": {On: map[string][]engine.TransitionConfig[gldCtx, gldEvt]{
 				"NEXT": {{Target: "done"}},
 			}},
-			"done": {Type: sc.NodeFinal},
+			"done": {Type: engine.NodeFinal},
 		},
 	})
 	if err != nil {

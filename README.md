@@ -9,7 +9,10 @@ finite automaton. It is inspired by the semantics of SCXML and
 typing via generics.
 
 ```go
-import "github.com/arisros/fate"
+import (
+	"github.com/arisros/fate/action"
+	"github.com/arisros/fate/engine"
+)
 ```
 
 - **Zero dependencies.** The engine imports only the standard library. The
@@ -45,7 +48,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/action"
+	"github.com/arisros/fate/engine"
 )
 
 type Ctx struct{ Count int }
@@ -58,18 +62,18 @@ func (Inc) isEvt()   {}
 func (Reset) isEvt() {}
 
 func main() {
-	m, err := fate.CreateMachine(fate.MachineConfig[Ctx, Evt]{
+	m, err := engine.CreateMachine(engine.MachineConfig[Ctx, Evt]{
 		ID:      "counter",
 		Initial: "active",
 		Context: Ctx{},
-		States: map[string]fate.StateNodeConfig[Ctx, Evt]{
+		States: map[string]engine.StateNodeConfig[Ctx, Evt]{
 			"active": {
-				On: map[string][]fate.TransitionConfig[Ctx, Evt]{
-					"Inc": {{Actions: []fate.Action[Ctx, Evt]{
-						fate.Assign(func(c Ctx, _ Evt) Ctx { c.Count++; return c }),
+				On: map[string][]engine.TransitionConfig[Ctx, Evt]{
+					"Inc": {{Actions: []action.Action[Ctx, Evt]{
+						action.Assign(func(c Ctx, _ Evt) Ctx { c.Count++; return c }),
 					}}},
-					"Reset": {{Target: "active", Actions: []fate.Action[Ctx, Evt]{
-						fate.Assign(func(c Ctx, _ Evt) Ctx { c.Count = 0; return c }),
+					"Reset": {{Target: "active", Actions: []action.Action[Ctx, Evt]{
+						action.Assign(func(c Ctx, _ Evt) Ctx { c.Count = 0; return c }),
 					}}},
 				},
 			},
@@ -79,7 +83,7 @@ func main() {
 		panic(err)
 	}
 
-	a := fate.NewActor(m)
+	a := engine.NewActor(m)
 	_ = a.Start(context.Background())
 	_ = a.Send(context.Background(), Inc{})
 	_ = a.Send(context.Background(), Inc{})
@@ -88,14 +92,25 @@ func main() {
 
 	// Persist and restore — the restored actor is identical.
 	blob, _ := a.Persist()
-	b, _ := fate.NewActorFromSnapshot[Ctx, Evt](m, blob)
+	b, _ := engine.NewActorFromSnapshot[Ctx, Evt](m, blob)
 	fmt.Println(b.Snapshot().Context.Count) // 2
 }
 ```
 
 See [`examples/`](./examples) for hierarchical, parallel, history, delayed, and
 invoked-actor machines, and the package
-[examples](https://pkg.go.dev/github.com/arisros/fate#pkg-examples) on pkg.go.dev.
+[examples](https://pkg.go.dev/github.com/arisros/fate/engine#pkg-examples) on pkg.go.dev.
+
+## Packages
+
+| Package | What it holds |
+|---|---|
+| `engine` | `CreateMachine`, `Setup`, `Machine`, `Actor`: build a machine and run it |
+| `action` | Actions (`Assign`, `Raise`, `Log`), guards (`And`, `Or`, `Not`), conditions (`InState`) |
+| `effect` | Timers and invocations a host drives (`PendingTimer`, `Invocation`) |
+| `persist` | The active configuration (`StateValue`) and `Snapshot` |
+| `describe` | The JSON `MachineDescriptor` and `UIState` view models for tooling |
+| `render`, `diff`, `snapshot`, `httphandler`, `testing` | Optional helpers built on the engine |
 
 ## Concepts
 
@@ -128,7 +143,7 @@ invoked-actor machines, and the package
   [Effects & adapters](./docs/guide/effects-and-adapters.md) ·
   [Temporal](./docs/guide/temporal.md)
 - [Architecture Decision Records](./docs/adr)
-- Per-symbol reference on [pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate)
+- Per-symbol reference on [pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate/engine)
 
 ## License
 

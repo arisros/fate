@@ -56,13 +56,6 @@ linters:
       - path: ^examples/
         linters:
           - unused
-      # The unused linter cannot see that a generic concrete type's method
-      # satisfies an unexported interface method called only through the
-      # interface (a known limitation with generics). The Action implementations'
-      # apply method is dispatched via the Action interface in runActions.
-      - linters:
-          - unused
-        text: \.apply is unused
     paths:
       - third_party$
       - builtin$

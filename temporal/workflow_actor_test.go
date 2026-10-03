@@ -10,7 +10,9 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 
-	fate "github.com/arisros/fate"
+	"github.com/arisros/fate/action"
+	"github.com/arisros/fate/effect"
+	"github.com/arisros/fate/engine"
 	fatetemporal "github.com/arisros/fate/temporal"
 )
 
@@ -29,32 +31,32 @@ type ivFail struct{}
 func (ivDone) isIv() {}
 func (ivFail) isIv() {}
 
-func invokeMachine() (*fate.Machine[ivCtx, ivEvt], error) {
-	return fate.CreateMachine(fate.MachineConfig[ivCtx, ivEvt]{
+func invokeMachine() (*engine.Machine[ivCtx, ivEvt], error) {
+	return engine.CreateMachine(engine.MachineConfig[ivCtx, ivEvt]{
 		ID:      "verify",
 		Initial: "checking",
-		States: map[string]fate.StateNodeConfig[ivCtx, ivEvt]{
+		States: map[string]engine.StateNodeConfig[ivCtx, ivEvt]{
 			"checking": {
-				Invoke: []fate.Invocation[ivCtx, ivEvt]{{
+				Invoke: []effect.Invocation[ivCtx, ivEvt]{{
 					ID:      "verify",
 					Src:     "verifyToken",
 					Input:   func(ivCtx) any { return "tok" },
 					OnDone:  func(out any) ivEvt { return ivDone{ok: out.(bool)} },
 					OnError: func(error) ivEvt { return ivFail{} },
 				}},
-				On: map[string][]fate.TransitionConfig[ivCtx, ivEvt]{
+				On: map[string][]engine.TransitionConfig[ivCtx, ivEvt]{
 					"ivDone": {{
 						Target: "approved",
 						Guard:  func(_ ivCtx, e ivEvt) bool { return e.(ivDone).ok },
-						Actions: []fate.Action[ivCtx, ivEvt]{
-							fate.Assign(func(c ivCtx, _ ivEvt) ivCtx { c.Approved = true; return c }),
+						Actions: []action.Action[ivCtx, ivEvt]{
+							action.Assign(func(c ivCtx, _ ivEvt) ivCtx { c.Approved = true; return c }),
 						},
 					}},
 					"ivFail": {{Target: "rejected"}},
 				},
 			},
-			"approved": {Type: fate.NodeFinal},
-			"rejected": {Type: fate.NodeFinal},
+			"approved": {Type: engine.NodeFinal},
+			"rejected": {Type: engine.NodeFinal},
 		},
 	})
 }
@@ -124,15 +126,15 @@ func (assertErr) Error() string { return "boom" }
 type tCtx struct{}
 type tEvt interface{ isT() }
 
-func timerMachine() (*fate.Machine[tCtx, tEvt], error) {
-	return fate.CreateMachine(fate.MachineConfig[tCtx, tEvt]{
+func timerMachine() (*engine.Machine[tCtx, tEvt], error) {
+	return engine.CreateMachine(engine.MachineConfig[tCtx, tEvt]{
 		ID:      "timer",
 		Initial: "waiting",
-		States: map[string]fate.StateNodeConfig[tCtx, tEvt]{
-			"waiting": {After: map[time.Duration][]fate.TransitionConfig[tCtx, tEvt]{
+		States: map[string]engine.StateNodeConfig[tCtx, tEvt]{
+			"waiting": {After: map[time.Duration][]engine.TransitionConfig[tCtx, tEvt]{
 				time.Hour: {{Target: "fired"}},
 			}},
-			"fired": {Type: fate.NodeFinal},
+			"fired": {Type: engine.NodeFinal},
 		},
 	})
 }
@@ -169,15 +171,15 @@ func TestWorkflowActor_AfterDrivesWorkflowTimer(t *testing.T) {
 
 // --- external event → signal ---
 
-func signalMachine() (*fate.Machine[struct{}, string], error) {
-	return fate.CreateMachine(fate.MachineConfig[struct{}, string]{
+func signalMachine() (*engine.Machine[struct{}, string], error) {
+	return engine.CreateMachine(engine.MachineConfig[struct{}, string]{
 		ID:      "gate",
 		Initial: "idle",
-		States: map[string]fate.StateNodeConfig[struct{}, string]{
-			"idle": {On: map[string][]fate.TransitionConfig[struct{}, string]{
+		States: map[string]engine.StateNodeConfig[struct{}, string]{
+			"idle": {On: map[string][]engine.TransitionConfig[struct{}, string]{
 				"OPEN": {{Target: "open"}},
 			}},
-			"open": {Type: fate.NodeFinal},
+			"open": {Type: engine.NodeFinal},
 		},
 	})
 }
