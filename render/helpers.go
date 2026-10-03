@@ -4,10 +4,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/describe"
 )
 
-func sortedStateKeys(m map[string]fate.StateNodeDescriptor) []string {
+func sortedStateKeys(m map[string]describe.StateNodeDescriptor) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
 		out = append(out, k)
@@ -28,12 +28,12 @@ func nodeID(path string) string {
 	return "s_" + r.Replace(path)
 }
 
-type descriptorIndex map[string]fate.StateNodeDescriptor
+type descriptorIndex map[string]describe.StateNodeDescriptor
 
-func indexDescriptor(d fate.MachineDescriptor) descriptorIndex {
+func indexDescriptor(d describe.MachineDescriptor) descriptorIndex {
 	idx := descriptorIndex{}
-	var walk func(prefix string, states map[string]fate.StateNodeDescriptor)
-	walk = func(prefix string, states map[string]fate.StateNodeDescriptor) {
+	var walk func(prefix string, states map[string]describe.StateNodeDescriptor)
+	walk = func(prefix string, states map[string]describe.StateNodeDescriptor) {
 		for name, node := range states {
 			path := joinDotPath(prefix, name)
 			idx[path] = node

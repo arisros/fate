@@ -6,8 +6,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/describe"
 	"github.com/arisros/fate/diff"
+	"github.com/arisros/fate/persist"
 	"github.com/arisros/fate/render"
 )
 
@@ -68,10 +69,10 @@ func runGraph(args []string) {
 }
 
 type snapshotShape struct {
-	Version int              `json:"version"`
-	Value   fate.StateValue  `json:"value"`
-	Context json.RawMessage  `json:"context"`
-	Status  fate.ActorStatus `json:"status"`
+	Version int                 `json:"version"`
+	Value   persist.StateValue  `json:"value"`
+	Context json.RawMessage     `json:"context"`
+	Status  persist.ActorStatus `json:"status"`
 }
 
 func runSnap(args []string) {
@@ -108,12 +109,12 @@ func runDiff(args []string) {
 	}
 }
 
-func readSnapshot(path string) fate.Snapshot[json.RawMessage] {
+func readSnapshot(path string) persist.Snapshot[json.RawMessage] {
 	var s snapshotShape
 	if err := json.Unmarshal(readAll(path), &s); err != nil {
 		die("read %s: %v", path, err)
 	}
-	return fate.Snapshot[json.RawMessage]{
+	return persist.Snapshot[json.RawMessage]{
 		Version: s.Version,
 		Value:   s.Value,
 		Context: s.Context,
@@ -121,8 +122,8 @@ func readSnapshot(path string) fate.Snapshot[json.RawMessage] {
 	}
 }
 
-func mustDescriptor(path string) fate.MachineDescriptor {
-	d, err := fate.LoadDescriptor(readAll(path))
+func mustDescriptor(path string) describe.MachineDescriptor {
+	d, err := describe.LoadDescriptor(readAll(path))
 	if err != nil {
 		die("%s: %v", path, err)
 	}

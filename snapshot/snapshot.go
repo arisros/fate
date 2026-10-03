@@ -6,16 +6,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/describe"
+	"github.com/arisros/fate/engine"
 )
 
 // Emit writes m.Describe() as indented JSON to <dir>/<name>.json, creating dir if needed.
-func Emit[Ctx any, Evt any](dir, name string, m *fate.Machine[Ctx, Evt]) error {
+func Emit[Ctx any, Evt any](dir, name string, m *engine.Machine[Ctx, Evt]) error {
 	return EmitDescriptor(dir, name, m.Describe())
 }
 
 // EmitDescriptor writes a pre-built descriptor.
-func EmitDescriptor(dir, name string, d fate.MachineDescriptor) error {
+func EmitDescriptor(dir, name string, d describe.MachineDescriptor) error {
 	if name == "" {
 		return fmt.Errorf("snapshot: empty machine name")
 	}

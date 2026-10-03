@@ -15,7 +15,7 @@ Released binaries for Linux and macOS are also attached to each
 
 The tool reads two kinds of JSON:
 
-- A **machine descriptor** — the JSON of `fate.MachineDescriptor`, as produced
+- A **machine descriptor** — the JSON of `describe.MachineDescriptor`, as produced
   by `Machine.Describe` and marshalled, or served by a studio at
   `/m/{name}/describe`.
 - A **persisted snapshot** — the JSON written by `Actor.Persist`.
