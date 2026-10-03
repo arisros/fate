@@ -33,7 +33,7 @@ export default defineConfig({
   ],
 
   themeConfig: {
-    logo: '/logo.svg',
+    logo: { light: '/logo-light.svg', dark: '/logo-dark.svg' },
 
     nav: [
       { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },

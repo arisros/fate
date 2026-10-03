@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/public/logo.svg" width="96" height="96" alt="fate">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/logo-dark.svg">
+    <img src="docs/public/logo-light.svg" width="96" height="96" alt="fate">
+  </picture>
 </p>
 
 <h1 align="center">fate</h1>
