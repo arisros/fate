@@ -122,6 +122,62 @@ jobs:
           working-directory: ${{ matrix.module }}
           args: --config=${{ github.workspace }}/.golangci.yml
 
+  tidy:
+    name: go.mod is tidy (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ['.', 'temporal']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.25'
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      - name: go mod tidy -diff
+        working-directory: ${{ matrix.module }}
+        run: go mod tidy -diff
+
+  api:
+    name: API compatibility
+    # The release PR is dispatched, not a pull_request, so it never runs this.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.25'
+      - name: install apidiff
+        run: go install golang.org/x/exp/cmd/apidiff@v0.0.0-20260813180055-c1d0aacb2297
+      - name: compare the exported API with the base branch
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          module=github.com/arisros/fate
+          git worktree add --quiet "$RUNNER_TEMP/base" "$BASE_SHA"
+          (cd "$RUNNER_TEMP/base" && apidiff -m -w "$RUNNER_TEMP/base.export" "$module")
+          # apidiff always exits 0, so the report itself is the signal.
+          report=$(apidiff -m -incompatible "$RUNNER_TEMP/base.export" "$module" 2>&1 | grep -v '^Ignoring internal package' || true)
+          if [ -z "$report" ]; then
+            echo "ok: no incompatible API changes"
+            exit 0
+          fi
+          printf '%s\n' "$report"
+          if printf '%s' "$PR_TITLE" | grep -qE '^[a-z]+(\([^)]*\))?!:'; then
+            echo "allowed: the PR title marks a breaking change"
+            exit 0
+          fi
+          echo "incompatible API changes need a breaking marker in the PR title (feat!: ...); see docs/versioning.md"
+          exit 1
+
   site:
     name: build the documentation site
     runs-on: ubuntu-latest
