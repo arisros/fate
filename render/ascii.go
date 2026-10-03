@@ -1,4 +1,4 @@
-// Package render produces visual representations of a [fate.MachineDescriptor].
+// Package render produces visual representations of a [describe.MachineDescriptor].
 // All functions are pure (no I/O, no side effects) and deterministic.
 //
 // Three renderers are provided:
@@ -6,8 +6,8 @@
 //   - [Mermaid] — stateDiagram-v2 source for browser-side rendering.
 //   - [GraphJSON] — resolved node/edge graph for canvas-based studio UIs.
 //
-// All renderers accept a [fate.MachineDescriptor], which is obtained from
-// [fate.Machine.Describe]. They have no dependency on a live actor.
+// All renderers accept a [describe.MachineDescriptor], which is obtained from
+// [engine.Machine.Describe]. They have no dependency on a live actor.
 package render
 
 // ASCII graph rendering for a MachineDescriptor. Pure-Go, no TUI deps.
@@ -28,7 +28,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/arisros/fate"
+	"github.com/arisros/fate/describe"
 )
 
 // Options controls cosmetic aspects of ASCII rendering. Zero value renders
@@ -72,7 +72,7 @@ func (o *Options) close() string {
 //
 // State child order is alphabetical for determinism (see ADR-002 / ADR-007).
 // Initial states are tagged with a trailing "(initial)" annotation.
-func ASCII(d fate.MachineDescriptor, opts Options) string {
+func ASCII(d describe.MachineDescriptor, opts Options) string {
 	var sb strings.Builder
 	header := fmt.Sprintf("Machine: %s (initial: %s)", d.ID, d.Initial)
 	sb.WriteString(header)
@@ -91,7 +91,7 @@ func ASCII(d fate.MachineDescriptor, opts Options) string {
 //	<event> [guard:NAME]: → <target> {Internal} [actions: A1, A2]
 //
 // Multiple alternatives for the same event appear on consecutive lines.
-func Transitions(d fate.MachineDescriptor, path string) string {
+func Transitions(d describe.MachineDescriptor, path string) string {
 	node, ok := lookupDescriptorPath(d, path)
 	if !ok {
 		return ""
@@ -122,7 +122,7 @@ func Transitions(d fate.MachineDescriptor, path string) string {
 	return sb.String()
 }
 
-func renderNode(sb *strings.Builder, name string, node fate.StateNodeDescriptor, depth int, ancestorPath string, parentInitial string, opts *Options) {
+func renderNode(sb *strings.Builder, name string, node describe.StateNodeDescriptor, depth int, ancestorPath string, parentInitial string, opts *Options) {
 	indent := strings.Repeat(" ", depth*opts.indentStep())
 	dotPath := joinDotPath(ancestorPath, name)
 	marker := highlightMarker(opts.Highlight, dotPath)
@@ -168,7 +168,7 @@ func renderNode(sb *strings.Builder, name string, node fate.StateNodeDescriptor,
 	sb.WriteByte('\n')
 }
 
-func nodeTagList(node fate.StateNodeDescriptor, isInitial bool) []string {
+func nodeTagList(node describe.StateNodeDescriptor, isInitial bool) []string {
 	var tags []string
 	if isInitial {
 		tags = append(tags, "(initial)")
@@ -206,19 +206,19 @@ func highlightMarker(highlight map[string]rune, dotPath string) string {
 	return ""
 }
 
-func lookupDescriptorPath(d fate.MachineDescriptor, path string) (fate.StateNodeDescriptor, bool) {
+func lookupDescriptorPath(d describe.MachineDescriptor, path string) (describe.StateNodeDescriptor, bool) {
 	if path == "" {
-		return fate.StateNodeDescriptor{}, false
+		return describe.StateNodeDescriptor{}, false
 	}
 	segments := strings.Split(path, ".")
 	cursor, ok := d.States[segments[0]]
 	if !ok {
-		return fate.StateNodeDescriptor{}, false
+		return describe.StateNodeDescriptor{}, false
 	}
 	for _, seg := range segments[1:] {
 		next, ok := cursor.States[seg]
 		if !ok {
-			return fate.StateNodeDescriptor{}, false
+			return describe.StateNodeDescriptor{}, false
 		}
 		cursor = next
 	}
@@ -232,7 +232,7 @@ func guardSuffix(name string) string {
 	return " [guard:" + name + "]"
 }
 
-func internalSuffix(t fate.TransitionDescriptor) string {
+func internalSuffix(t describe.TransitionDescriptor) string {
 	if !t.Internal {
 		return ""
 	}
@@ -255,7 +255,7 @@ func actionsSuffix(actions []string) string {
 	return fmt.Sprintf(" [actions: %s]", strings.Join(named, ", "))
 }
 
-func targetOrInternal(t fate.TransitionDescriptor) string {
+func targetOrInternal(t describe.TransitionDescriptor) string {
 	if t.Target == "" {
 		return "(no target — actions only)"
 	}

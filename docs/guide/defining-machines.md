@@ -14,11 +14,11 @@ type Retry  struct{}
 func (Submit) isEvt() {}
 func (Retry)  isEvt() {}
 
-m, err := fate.CreateMachine(fate.MachineConfig[Ctx, Evt]{
+m, err := engine.CreateMachine(engine.MachineConfig[Ctx, Evt]{
     ID:      "login",
     Initial: "entering",
-    States: map[string]fate.StateNodeConfig[Ctx, Evt]{
-        "entering": {On: map[string][]fate.TransitionConfig[Ctx, Evt]{
+    States: map[string]engine.StateNodeConfig[Ctx, Evt]{
+        "entering": {On: map[string][]engine.TransitionConfig[Ctx, Evt]{
             "Submit": {{Target: "checking"}},
         }},
         "checking": { /* ... */ },
@@ -73,7 +73,7 @@ A `Guard` is a pure predicate over context and event — `func(Ctx, Evt) bool`.
 Compose them with `And`, `Or`, `Not`:
 
 ```go
-Guard: fate.And(isVerified, fate.Not(isHighRisk)),
+Guard: action.And(isVerified, action.Not(isHighRisk)),
 ```
 
 A guard sees only data. To branch on *which states are currently active* — the
@@ -81,7 +81,7 @@ equivalent of XState's `stateIn` — use a `Cond` instead, built with `StateIn` 
 `InState` and composed with `CondAllOf`, `CondAnyOf`, `CondNot`:
 
 ```go
-{Target: "q", Cond: fate.StateIn("review.signed")},
+{Target: "q", Cond: action.StateIn("review.signed")},
 ```
 
 When both a `Guard` and a `Cond` are present, the transition fires only if both
@@ -98,7 +98,7 @@ states it in data. It is documentation only: the transition still fires on
 {
     Target:   "approved",
     Guard:    scoreAtLeast(700),
-    CondMeta: fate.Gates(fate.Field("$.score").Gte(700)).Sample(`{"score": 700}`),
+    CondMeta: action.Gates(action.Field("$.score").Gte(700)).Sample(`{"score": 700}`),
 },
 ```
 
@@ -136,11 +136,11 @@ readable and lets transitions share implementations. `NewSetup` gives you that,
 in the spirit of XState's `setup`:
 
 ```go
-s := fate.NewSetup[Ctx, Evt]().
+s := engine.NewSetup[Ctx, Evt]().
     WithGuard("isHighRisk", func(c Ctx, _ Evt) bool { return c.Risk == "HIGH" }).
-    WithAction("clearForm", fate.Assign(func(c Ctx, _ Evt) Ctx { c.Form = nil; return c }))
+    WithAction("clearForm", action.Assign(func(c Ctx, _ Evt) Ctx { c.Form = nil; return c }))
 
-m, err := s.CreateMachine(fate.MachineConfig[Ctx, Evt]{ /* ... uses s.Guard("isHighRisk"), s.Action("clearForm") ... */ })
+m, err := s.CreateMachine(engine.MachineConfig[Ctx, Evt]{ /* ... uses s.Guard("isHighRisk"), s.Action("clearForm") ... */ })
 ```
 
 Referencing a name that was never registered is reported as an error from
@@ -154,11 +154,11 @@ declared on the parent apply from any descendant:
 ```go
 "review": {
     Initial: "pending",
-    States: map[string]fate.StateNodeConfig[Ctx, Evt]{
+    States: map[string]engine.StateNodeConfig[Ctx, Evt]{
         "pending":  {On: ...},
-        "approved": {Type: fate.NodeFinal},
+        "approved": {Type: engine.NodeFinal},
     },
-    On: map[string][]fate.TransitionConfig[Ctx, Evt]{
+    On: map[string][]engine.TransitionConfig[Ctx, Evt]{
         "Cancel": {{Target: "cancelled"}}, // applies whatever review sub-state is active
     },
 },
@@ -175,8 +175,8 @@ once. A parallel node has no `Initial` — every region is entered:
 
 ```go
 "active": {
-    Type: fate.NodeParallel,
-    States: map[string]fate.StateNodeConfig[Ctx, Evt]{
+    Type: engine.NodeParallel,
+    States: map[string]engine.StateNodeConfig[Ctx, Evt]{
         "main":   {Initial: "form",   States: ...},
         "review": {Initial: "queued", States: ...},
     },
@@ -203,10 +203,10 @@ left. Declare it as a child of the compound whose history you want to remember:
 ```go
 "editing": {
     Initial: "draft",
-    States: map[string]fate.StateNodeConfig[Ctx, Evt]{
+    States: map[string]engine.StateNodeConfig[Ctx, Evt]{
         "draft":      {On: ...},
         "review":     {On: ...},
-        "hist":       {Type: fate.NodeHistory, History: fate.HistoryDeep, Default: "draft"},
+        "hist":       {Type: engine.NodeHistory, History: engine.HistoryDeep, Default: "draft"},
     },
 },
 // elsewhere: re-enter via "editing.hist" to resume the exact sub-state.
@@ -225,7 +225,7 @@ show while that state is active:
 
 ```go
 "review": {
-    UIState: fate.UIStateOf(func(c Ctx) ReviewView {
+    UIState: describe.UIStateOf(func(c Ctx) ReviewView {
         return ReviewView{Score: c.Score, Passes: c.Score >= 700}
     }),
 },
