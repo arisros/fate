@@ -6,7 +6,8 @@ hero:
   text: A statechart engine for Go
   tagline: Hierarchical states, parallel regions, and history — with no dependencies beyond the standard library.
   image:
-    src: /logo.svg
+    light: /logo-light.svg
+    dark: /logo-dark.svg
     alt: fate
   actions:
     - theme: brand
