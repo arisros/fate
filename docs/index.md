@@ -2,13 +2,9 @@
 layout: home
 
 hero:
-  name: fate
-  text: A statechart engine for Go
-  tagline: Hierarchical states, parallel regions, and history — with no dependencies beyond the standard library.
-  image:
-    light: /logo-light.svg
-    dark: /logo-dark.svg
-    alt: fate
+  text: A statechart engine for Go that only <em>computes</em>.
+  tagline: Hierarchical states, parallel regions, and history, with no dependencies beyond the standard library.
+  install: go get github.com/arisros/fate
   actions:
     - theme: brand
       text: Get started
@@ -20,29 +16,29 @@ hero:
       text: GitHub
       link: https://github.com/arisros/fate
 
-features:
+highlights:
   - title: Statecharts, not flat FSMs
-    details: Compound and parallel states, deep and shallow history, guards, actions, and final states. The semantics follow SCXML and XState v5.
+    details: Compound and parallel states, deep and shallow history, guards, actions, and final states.
     link: /concepts
-    linkText: Read the concepts
+    glyph: nested
   - title: No dependencies
-    details: The engine imports only the standard library. The Temporal integration is a separate module, so its SDK is never pulled in unless you ask for it.
+    details: The engine imports only the standard library. The Temporal integration is a separate module.
     link: /guide/getting-started
-    linkText: Install
+    glyph: none
   - title: Deterministic and persistable
-    details: A Machine is immutable and shareable. An Actor serialises to JSON and restores byte for byte, which makes replay exact.
+    details: An Actor serialises to JSON and restores byte for byte, which makes replay exact.
     link: /guide/persistence-and-determinism
-    linkText: How persistence works
+    glyph: final
   - title: Effects are data
-    details: Delayed transitions and invocations are surfaced as pending effects. An adapter performs them, so the engine itself never touches the clock or the network.
+    details: Delays and invocations surface as pending effects. An adapter performs them.
     link: /guide/effects-and-adapters
-    linkText: The effect model
+    glyph: effect
   - title: Runs inside Temporal
-    details: Because the engine performs no side effects, a machine can be driven from a workflow and survive replay unchanged.
+    details: No side effects in the engine, so a machine survives workflow replay unchanged.
     link: /guide/temporal
-    linkText: The Temporal guide
+    glyph: clock
   - title: Render and diff
-    details: Render any machine to ASCII, Mermaid, or graph JSON, and diff two snapshots from the command line.
+    details: Render any machine to ASCII, Mermaid, or graph JSON, and diff two snapshots.
     link: /cli
-    linkText: The fate CLI
+    glyph: diff
 ---
