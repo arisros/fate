@@ -76,4 +76,4 @@ func main() {
 
 The `examples/` directory has runnable programs (a traffic light, a real-time
 timer driver) and the package's testable `Example` functions double as
-documentation on [pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate).
+documentation on [pkg.go.dev](https://pkg.go.dev/github.com/arisros/fate/engine).

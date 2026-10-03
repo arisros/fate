@@ -59,6 +59,9 @@ A property-test failure blocks merge.
 - Reference the relevant ADR when changing a contract-level decision; add a new
   ADR under `docs/adr/` when introducing one.
 - The CI matrix (multiple Go versions × root + temporal modules) must be green.
+- CI rejects an untidy `go.mod` (`go mod tidy -diff`) and any incompatible
+  change to the exported API unless the PR title carries a breaking marker
+  (`feat!:`). Deprecate first, per the [versioning policy](./docs/versioning.md).
 - Commit subjects and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `feat!:` or a `BREAKING CHANGE:` footer). The release notes
   and version bump are generated from them, so write the subject for a reader of
