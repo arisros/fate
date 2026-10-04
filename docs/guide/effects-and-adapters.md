@@ -104,6 +104,23 @@ happens on one goroutine, in a defined order. That is what lets the same machine
 run under a real clock, a virtual clock, or Temporal's replay-safe clock without
 changing a line of the machine.
 
+### Seeing what a step did
+
+`actor.PendingTimers()` and `PendingInvocations()` say what is armed now. They do
+not show a state that was left and entered again in one step, because the ids are
+derived from the state path and come out the same. `actor.SubscribeSteps` reports
+each step as it happens:
+
+```go
+actor.SubscribeSteps(func(s engine.Step) {
+    // s.Cause, s.Event, s.Transitions, s.Exited, s.Entered, s.Value
+})
+```
+
+A state listed in both `Exited` and `Entered` was restarted, so an adapter
+cancels and restarts its timers and invocations. The same record is what an audit
+trail stores. See [ADR-0008](../adr/0008-step-records.md).
+
 ### Three adapters, one machine
 
 - **Tests** are the simplest adapter: read `PendingTimers()` / `PendingInvocations()`

@@ -19,6 +19,7 @@ type persistedShape[Ctx any, Evt any] struct {
 	History     map[string]string             `json:"history,omitempty"`
 	HistoryDeep map[string]persist.StateValue `json:"history_deep,omitempty"`
 	Queue       []Evt                         `json:"queue,omitempty"`
+	Seq         uint64                        `json:"seq,omitempty"`
 	// Timers and invocations are not stored: restore re-derives them (ADR-0004).
 	Output json.RawMessage `json:"output,omitempty"`
 	Error  string          `json:"error,omitempty"`
@@ -48,6 +49,7 @@ func (a *Actor[Ctx, Evt]) persistedShapeLocked() persistedShape[Ctx, Evt] {
 		History:     history,
 		HistoryDeep: deep,
 		Queue:       a.queue.Snapshot(),
+		Seq:         a.seq,
 		Output:      a.output,
 		Error:       a.errText,
 	}
@@ -75,6 +77,7 @@ func NewActorFromSnapshot[Ctx any, Evt any](m *Machine[Ctx, Evt], persisted []by
 		status:            p.Status,
 		output:            p.Output,
 		errText:           p.Error,
+		seq:               p.Seq,
 		armed:             map[effect.TimerID]afterBinding[Ctx, Evt]{},
 		pendingInvokes:    map[effect.InvokeID]invokeBinding[Ctx, Evt]{},
 		historyMemory:     map[*stateNode[Ctx, Evt]]string{},

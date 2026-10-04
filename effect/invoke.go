@@ -17,4 +17,5 @@ type PendingInvocation struct {
 	ID    InvokeID
 	Src   string
 	Input any
+	State string
 }

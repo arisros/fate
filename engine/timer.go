@@ -25,7 +25,7 @@ func (a *Actor[Ctx, Evt]) PendingTimers() []effect.PendingTimer {
 	defer a.mu.Unlock()
 	out := make([]effect.PendingTimer, 0, len(a.armed))
 	for id, b := range a.armed {
-		out = append(out, effect.PendingTimer{ID: id, Delay: b.entry.delay})
+		out = append(out, effect.PendingTimer{ID: id, Delay: b.entry.delay, State: dotPath(b.node)})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
@@ -76,7 +76,9 @@ func (a *Actor[Ctx, Evt]) fireTimerLocked(id effect.TimerID) bool {
 	}
 
 	var zeroEvt Evt
+	a.beginStepLocked(StepTimer, "", string(id))
 	a.handleAfterLocked(binding.node, binding.entry, zeroEvt)
+	a.endStepLocked()
 	return true
 }
 
@@ -86,6 +88,7 @@ func (a *Actor[Ctx, Evt]) handleAfterLocked(source *stateNode[Ctx, Evt], ae afte
 			continue
 		}
 		if t.Target == "" {
+			a.recordTransitionLocked(source, nil, true, nil, nil)
 			a.runActions(t.Actions, evt)
 			return
 		}
