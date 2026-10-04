@@ -176,16 +176,15 @@ func ExampleActor_NextEvents() {
 	a := engine.NewActor(m)
 	_ = a.Start(context.Background())
 
-	for _, name := range a.NextEvents() {
-		fmt.Println(name, a.Can(name))
-	}
+	fmt.Println(a.NextEvents())
+	fmt.Println(a.Enabled(func(name string) (string, bool) { return name, true }))
 
 	next, _ := a.Preview("REJECT")
 	fmt.Println(next.Value.Path(), next.Status)
 	fmt.Println(a.Snapshot().Value.Path())
 	// Output:
-	// APPROVE false
-	// REJECT true
+	// [APPROVE REJECT]
+	// [REJECT]
 	// rejected done
 	// open
 }

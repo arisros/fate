@@ -140,3 +140,31 @@ func TestPreview_ReportsWhatSendWould(t *testing.T) {
 		t.Error("unmarshalable context: Preview returned no error")
 	}
 }
+
+func TestEnabled_EvaluatesGuardsAndSkipsUnknownNames(t *testing.T) {
+	type state = engine.StateNodeConfig[int, string]
+	type trans = engine.TransitionConfig[int, string]
+	m, err := engine.CreateMachine(engine.MachineConfig[int, string]{
+		ID: "review", Initial: "open", Context: 40,
+		States: map[string]state{
+			"open": {On: map[string][]trans{
+				"APPROVE":  {{Target: "closed", Guard: func(score int, _ string) bool { return score >= 60 }}},
+				"REJECT":   {{Target: "closed"}},
+				"ESCALATE": {{Target: "closed"}},
+			}},
+			"closed": {},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateMachine: %v", err)
+	}
+	a := engine.NewActor(m)
+	byName := func(name string) (string, bool) { return name, name != "ESCALATE" }
+	if got := a.Enabled(byName); got != nil {
+		t.Errorf("not started: Enabled %v, want none", got)
+	}
+	_ = a.Start(context.Background())
+	if got, want := a.Enabled(byName), []string{"REJECT"}; !slices.Equal(got, want) {
+		t.Errorf("Enabled %v, want %v", got, want)
+	}
+}

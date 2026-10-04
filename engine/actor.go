@@ -227,14 +227,7 @@ func (a *Actor[Ctx, Evt]) Can(evt Evt) bool {
 // same handlers Send would consult, and leaves out the "*" wildcard.
 //
 // Guards are not evaluated, because a guard needs an event value and a name is
-// not one. To list only the events that would fire now, build each event and
-// ask [Actor.Can]:
-//
-//	for _, name := range actor.NextEvents() {
-//	    if evt, ok := eventByName(name); ok && actor.Can(evt) {
-//	        enabled = append(enabled, name)
-//	    }
-//	}
+// not one. [Actor.Enabled] lists only the events that would fire now.
 //
 // An actor that is not running reports none.
 func (a *Actor[Ctx, Evt]) NextEvents() []string {
@@ -254,6 +247,22 @@ func (a *Actor[Ctx, Evt]) NextEvents() []string {
 		}
 	}
 	return slices.Sorted(maps.Keys(names))
+}
+
+// Enabled returns the names from [Actor.NextEvents] whose event would fire a
+// transition now, guards evaluated, sorted. byName builds the event for a name
+// and reports false for a name it does not know, which leaves that name out.
+//
+// A guard that reads the event's payload sees the payload byName supplies, so
+// the answer is exact only for the events byName builds.
+func (a *Actor[Ctx, Evt]) Enabled(byName func(name string) (Evt, bool)) []string {
+	var enabled []string
+	for _, name := range a.NextEvents() {
+		if evt, ok := byName(name); ok && a.Can(evt) {
+			enabled = append(enabled, name)
+		}
+	}
+	return enabled
 }
 
 // Preview returns the snapshot [Actor.Send] would leave behind for evt, without
