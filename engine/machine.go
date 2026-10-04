@@ -77,9 +77,9 @@ type StateNodeConfig[Ctx any, Evt any] struct {
 	// For a compound node, Exit runs after the child's Exit (deepest first).
 	Exit []action.Action[Ctx, Evt]
 
-	// OnDone declares transitions to fire when this compound node's active
-	// child reaches a final state. Only meaningful for Type=NodeCompound
-	// (or NodeParallel in P5 follow-up). Empty for atomic / final nodes.
+	// OnDone declares transitions to fire when this node completes: a compound
+	// node when its active child reaches a final state, a parallel node when
+	// every region has. Empty for atomic / final nodes.
 	OnDone []TransitionConfig[Ctx, Evt]
 
 	// History selects HistoryShallow or HistoryDeep when Type is NodeHistory.
