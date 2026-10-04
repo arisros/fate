@@ -13,7 +13,7 @@ const { frontmatter } = useData()
 
 <template>
   <section v-if="frontmatter.highlights" class="fate-feats">
-    <ul>
+    <ul class="fate-wrap">
       <li v-for="item in frontmatter.highlights as Highlight[]" :key="item.title">
         <svg viewBox="0 0 32 32" aria-hidden="true">
           <template v-if="item.glyph === 'nested'">
@@ -57,85 +57,66 @@ const { frontmatter } = useData()
 
 <style scoped>
 .fate-feats {
-  padding: 0 24px;
+  border-top: 1px solid var(--fate-line);
 }
 
 ul {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 0 36px;
-  margin: 0 auto;
-  max-width: 1152px;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 0 48px;
+  padding-top: 88px;
+  padding-bottom: 88px;
 }
 
 li {
   display: flex;
-  gap: 14px;
-  border-top: 1px solid var(--vp-c-divider);
-  padding: 18px 0;
+  gap: 16px;
+  border-top: 1px solid var(--fate-line);
+  padding: 28px 0;
   min-width: 0;
 }
 
 svg {
   flex: none;
   margin-top: 2px;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
 }
 
 .line {
   fill: none;
-  stroke: var(--vp-c-text-1);
+  stroke: var(--fate-fg);
   stroke-width: 2.4;
   stroke-linecap: round;
 }
 
 .ink {
-  fill: var(--vp-c-text-1);
+  fill: var(--fate-fg);
 }
 
 .acc {
-  fill: var(--vp-c-brand-1);
+  fill: var(--fate-active-line);
 }
 
 h2 {
-  line-height: 1.5;
-  font-size: 15px;
+  line-height: 1.4;
+  font-size: 18px;
   font-weight: 600;
 }
 
 h2 a {
-  color: var(--vp-c-text-1);
+  color: var(--fate-fg);
   transition: color 0.25s;
 }
 
 h2 a:hover {
-  color: var(--vp-c-brand-1);
+  color: var(--fate-accent);
 }
 
 p {
+  padding-top: 8px;
   line-height: 1.5;
-  font-size: 14px;
-  color: var(--vp-c-text-2);
-}
-
-@media (min-width: 640px) {
-  .fate-feats {
-    padding: 0 48px;
-  }
-
-  ul {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 960px) {
-  .fate-feats {
-    padding: 0 64px;
-  }
-
-  ul {
-    grid-template-columns: repeat(3, 1fr);
-  }
+  font-size: 15px;
+  color: var(--fate-muted);
 }
 </style>
