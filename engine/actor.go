@@ -68,6 +68,13 @@ type Actor[Ctx any, Evt any] struct {
 	pendingInvokes map[effect.InvokeID]invokeBinding[Ctx, Evt]
 
 	subscribers []func(persist.Snapshot[Ctx])
+
+	// seq counts the steps taken, step is the one being recorded, and steps
+	// holds finished ones until the observers are notified.
+	seq             uint64
+	step            *Step
+	steps           []Step
+	stepSubscribers []func(Step)
 }
 
 // afterBinding records which state and delay bucket an armed timer belongs to,
@@ -154,11 +161,14 @@ func (a *Actor[Ctx, Evt]) Start(_ context.Context) error {
 	// initial-descendant chain, executing each node's Entry in order and
 	// arming any delayed transitions it declares.
 	var zeroEvt Evt
+	a.beginStepLocked(StepStart, "", "")
 	for _, node := range initialEntryChain[Ctx, Evt](a.machine.root) {
+		a.step.Entered = append(a.step.Entered, dotPath(node))
 		a.runActions(node.entry(), zeroEvt)
 		a.armAfterLocked(node)
 		a.armInvokesLocked(node)
 	}
+	a.endStepLocked()
 	a.drainQueueLocked()
 	a.settleFinalLocked(zeroEvt)
 	a.notifyLocked()
@@ -184,7 +194,7 @@ func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
 	if a.status != persist.StatusRunning {
 		return ErrActorNotStarted
 	}
-	a.handleEventLocked(evt)
+	a.handleEventLocked(evt, StepEvent, "")
 	a.drainQueueLocked()
 	a.settleFinalLocked(evt)
 	a.notifyLocked()
@@ -371,12 +381,15 @@ func (a *Actor[Ctx, Evt]) Stop() {
 // runs actions in the SCXML-defined order. Each selected transition is
 // applied in the order returned by selectTransitions (deterministic across
 // runs, since leaves are visited in alphabetical path order).
-func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt) {
+func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt, cause StepCause, effectID string) {
 	eventName := internal.EventName(evt)
 	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, eventName)
+	a.beginStepLocked(cause, eventName, effectID)
+	defer a.endStepLocked()
 	for _, sel := range selections {
 		t := sel.Config
 		if t.Target == "" {
+			a.recordTransitionLocked(sel.Source, nil, true, nil, nil)
 			a.runActions(t.Actions, evt)
 			continue
 		}
@@ -401,6 +414,7 @@ func (a *Actor[Ctx, Evt]) runTransitionLocked(
 ) {
 	exit := computeExitSet[Ctx, Evt](a.machine.root, a.value, source, target, t.Internal)
 	entry := computeEntrySet[Ctx, Evt](source, target, t.Internal, a.pendingDeepSplice)
+	a.recordTransitionLocked(source, target, t.Internal, exit, entry)
 
 	// 1) Record history for any compound about to exit, then run exit
 	//    actions deepest first, and cancel that state's pending after-timers.
@@ -552,7 +566,9 @@ func (a *Actor[Ctx, Evt]) settleFinalLocked(triggerEvt Evt) {
 			a.completeLocked(leaves)
 			return
 		}
+		a.beginStepLocked(StepDone, "", "")
 		a.runTransitionLocked(source, target, chosen, triggerEvt)
+		a.endStepLocked()
 	}
 	if a.logger != nil {
 		a.logger("statechart: onDone settle cap reached; configuration may be ill-formed")
@@ -637,7 +653,7 @@ func (a *Actor[Ctx, Evt]) drainQueueLocked() {
 		if !ok {
 			return
 		}
-		a.handleEventLocked(evt)
+		a.handleEventLocked(evt, StepRaise, "")
 	}
 	if a.logger != nil {
 		a.logger("statechart: queue drain cap reached; events dropped")
@@ -686,6 +702,7 @@ func (a *Actor[Ctx, Evt]) captureOutputLocked(finalLeaf *stateNode[Ctx, Evt]) {
 }
 
 func (a *Actor[Ctx, Evt]) notifyLocked() {
+	a.deliverStepsLocked()
 	snap := a.snapshotLocked()
 	for _, obs := range a.subscribers {
 		if obs != nil {
