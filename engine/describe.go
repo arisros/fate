@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"slices"
 	"sort"
 
 	"github.com/arisros/fate/action"
@@ -75,6 +76,7 @@ func describeNode[Ctx any, Evt any](n *stateNode[Ctx, Evt]) describe.StateNodeDe
 	if n.uiState != nil {
 		sd.UIStateSchema = n.uiState.Schema()
 	}
+	sd.Meta = slices.Clone(n.meta)
 	if len(n.children) > 0 {
 		sd.States = map[string]describe.StateNodeDescriptor{}
 		for name, child := range n.children {
@@ -91,6 +93,7 @@ func describeTransitions[Ctx any, Evt any](ts []TransitionConfig[Ctx, Evt]) []de
 			Target:   t.Target,
 			Internal: t.Internal,
 			CondMeta: t.CondMeta.Clone(),
+			Meta:     slices.Clone(t.meta),
 		}
 		td.Guard = t.GuardName
 		if names := describeActions(t.Actions); len(names) > 0 {
