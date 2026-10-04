@@ -52,19 +52,6 @@ func selectTransitions[Ctx any, Evt any](
 	return out
 }
 
-// resolveLeaf returns the first leaf for value `v`. For parallel
-// configurations there are multiple active leaves; resolveLeaf returns one
-// deterministic choice (alphabetically-first region) so legacy single-leaf
-// call sites still produce reasonable output. Use resolveLeaves for
-// parallel-aware iteration.
-func resolveLeaf[Ctx any, Evt any](root *stateNode[Ctx, Evt], v persist.StateValue) *stateNode[Ctx, Evt] {
-	leaves := resolveLeaves[Ctx, Evt](root, v)
-	if len(leaves) == 0 {
-		return nil
-	}
-	return leaves[0]
-}
-
 // resolveLeaves walks a StateValue against the validated node tree and
 // returns every active leaf state node, in deterministic (alphabetical)
 // path order. For non-parallel configurations the slice has length 1.

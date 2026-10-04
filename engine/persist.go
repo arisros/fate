@@ -3,6 +3,8 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/arisros/fate/effect"
@@ -76,6 +78,10 @@ func (a *Actor[Ctx, Evt]) persistedShapeLocked() persistedShape[Ctx, Evt] {
 //
 // Restoration sequence:
 //   - Validates the snapshot version is supported.
+//   - Validates the state value against the machine, returning
+//     ErrSnapshotMismatch when it names a state the machine does not have,
+//     gives a compound state more than one active child, or leaves a parallel
+//     region out.
 //   - Rebuilds the history memory by resolving stored path strings to
 //     stateNode pointers within the supplied machine.
 //   - Restores any queued internal events.
@@ -92,6 +98,9 @@ func NewActorFromSnapshot[Ctx any, Evt any](m *Machine[Ctx, Evt], persisted []by
 	}
 	if p.Version < 1 {
 		return nil, fmt.Errorf("statechart: snapshot version %d is too old (minimum 1)", p.Version)
+	}
+	if err := validateValue[Ctx, Evt](m.root, p.Value); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrSnapshotMismatch, err)
 	}
 	a := &Actor[Ctx, Evt]{
 		machine:           m,
@@ -166,4 +175,49 @@ func lookupByPath[Ctx any, Evt any](root *stateNode[Ctx, Evt], path string) *sta
 		cursor = next
 	}
 	return cursor
+}
+
+// validateValue reports why v, the value inside parent, is not a configuration
+// of the machine.
+func validateValue[Ctx any, Evt any](parent *stateNode[Ctx, Evt], v persist.StateValue) error {
+	switch parent.typ {
+	case NodeCompound:
+		if v.IsAtomic() {
+			if _, ok := parent.children[v.Leaf]; !ok {
+				return fmt.Errorf("state %q has no child %q", statePath(parent), v.Leaf)
+			}
+			return nil
+		}
+		if len(v.Children) != 1 {
+			return fmt.Errorf("compound state %q has %d active children", statePath(parent), len(v.Children))
+		}
+	case NodeParallel:
+		if v.IsAtomic() {
+			return fmt.Errorf("parallel state %q has no regions in the snapshot", statePath(parent))
+		}
+		for _, name := range slices.Sorted(maps.Keys(parent.children)) {
+			if _, ok := v.Children[name]; !ok {
+				return fmt.Errorf("parallel state %q is missing region %q", statePath(parent), name)
+			}
+		}
+	default:
+		return nil
+	}
+	for _, name := range slices.Sorted(maps.Keys(v.Children)) {
+		child, ok := parent.children[name]
+		if !ok {
+			return fmt.Errorf("state %q has no child %q", statePath(parent), name)
+		}
+		if err := validateValue[Ctx, Evt](child, v.Children[name]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func statePath[Ctx any, Evt any](n *stateNode[Ctx, Evt]) string {
+	if n.name == "" {
+		return "(root)"
+	}
+	return strings.Join(n.path, ".")
 }

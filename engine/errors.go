@@ -27,6 +27,11 @@ var (
 	// before P5).
 	ErrInvalidNodeType = errors.New("statechart: state node type not supported in this build")
 
+	// ErrSnapshotMismatch is returned by NewActorFromSnapshot when the
+	// snapshot's state value is not a configuration of the supplied machine,
+	// typically because the machine changed after the snapshot was taken.
+	ErrSnapshotMismatch = errors.New("statechart: snapshot does not match machine")
+
 	// ErrActorNotStarted is returned by Send when the actor's Start has not
 	// been called yet.
 	ErrActorNotStarted = errors.New("statechart: actor not started")
