@@ -53,6 +53,10 @@ type Step struct {
   continues after a restore. The field is additive: `SnapshotVersion` stays 1
   and a snapshot written before it reads as zero.
 
+`effect.PendingTimer` and `effect.PendingInvocation` gain a `State` field, the
+path of the state that declares them, so a host can match a pending effect to an
+entry in `Exited`.
+
 Steps are not stored. The engine keeps no journal; a host that wants one appends
 the steps it receives to its own store.
 

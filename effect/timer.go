@@ -27,4 +27,7 @@ type PendingTimer struct {
 	// adapter that resumes a persisted actor is responsible for tracking how
 	// much of the delay has already elapsed.
 	Delay time.Duration
+	// State is the dot path of the state that declares the delay. A host that
+	// sees that state exited in an engine.Step restarts the timer.
+	State string
 }

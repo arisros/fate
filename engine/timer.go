@@ -33,7 +33,7 @@ func (a *Actor[Ctx, Evt]) PendingTimers() []effect.PendingTimer {
 	defer a.mu.Unlock()
 	out := make([]effect.PendingTimer, 0, len(a.armed))
 	for id, b := range a.armed {
-		out = append(out, effect.PendingTimer{ID: id, Delay: b.entry.delay})
+		out = append(out, effect.PendingTimer{ID: id, Delay: b.entry.delay, State: dotPath(b.node)})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out

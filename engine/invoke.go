@@ -57,7 +57,7 @@ func (a *Actor[Ctx, Evt]) PendingInvocations() []effect.PendingInvocation {
 	defer a.mu.Unlock()
 	out := make([]effect.PendingInvocation, 0, len(a.pendingInvokes))
 	for id, b := range a.pendingInvokes {
-		out = append(out, effect.PendingInvocation{ID: id, Src: b.inv.Src, Input: b.input})
+		out = append(out, effect.PendingInvocation{ID: id, Src: b.inv.Src, Input: b.input, State: dotPath(b.node)})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out

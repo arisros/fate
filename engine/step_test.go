@@ -116,6 +116,12 @@ func TestSteps_ReEntryShowsInBothLists(t *testing.T) {
 	_ = a.Start(context.Background())
 	_ = a.Send(context.Background(), "OK")
 	before := a.PendingInvocations()
+	if got := before[0].State; got != "approval" {
+		t.Fatalf("pending invocation state %q, want %q", got, "approval")
+	}
+	if got := a.PendingTimers()[0].State; got != "approval" {
+		t.Fatalf("pending timer state %q, want %q", got, "approval")
+	}
 	steps := recordSteps(a)
 
 	_ = a.Send(context.Background(), "RETRY")
