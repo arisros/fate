@@ -536,6 +536,12 @@ func validateTargets[Ctx any, Evt any](root *stateNode[Ctx, Evt]) error {
 				}
 			}
 		}
+		for i, t := range n.onDone {
+			if t.Target != "" && resolveTarget(n, t.Target) == nil {
+				return fmt.Errorf("%w: state %q onDone candidate %d target %q",
+					ErrUnknownTarget, strings.Join(n.path, "."), i, t.Target)
+			}
+		}
 		for _, child := range n.children {
 			if err := walk(child); err != nil {
 				return err

@@ -250,3 +250,29 @@ func Example_meta() {
 	// {"form":"survey_form"}
 	// {"order":1,"title":"Submit"}
 }
+
+// ExampleMachine_Lint finds a state nothing enters and a state nothing leaves.
+func ExampleMachine_Lint() {
+	type state = engine.StateNodeConfig[struct{}, string]
+	type transition = engine.TransitionConfig[struct{}, string]
+
+	m, err := engine.CreateMachine(engine.MachineConfig[struct{}, string]{
+		ID:      "task",
+		Initial: "draft",
+		States: map[string]state{
+			"draft":    {On: map[string][]transition{"SUBMIT": {{Target: "review"}}}},
+			"review":   {},
+			"returned": {On: map[string][]transition{"SUBMIT": {{Target: "review"}}}},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	for _, f := range m.Lint() {
+		fmt.Println(f.State, f.Kind)
+	}
+	// Output:
+	// returned unreachable
+	// review dead_end
+}
