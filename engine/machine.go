@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
@@ -97,6 +98,11 @@ type StateNodeConfig[Ctx any, Evt any] struct {
 	// XState's final-state output.
 	Output func(ctx Ctx) any
 
+	// Meta is data for tooling and hosts: a form name, a task type, a display
+	// order. The engine never reads it. CreateMachine encodes it as JSON, so
+	// values must be JSON-marshalable, and Describe publishes it as "meta".
+	Meta map[string]any
+
 	// UIState projects the context into a view model while this state is
 	// active. Build it with UIStateOf. See Machine.UIState.
 	UIState *describe.UIState[Ctx]
@@ -134,6 +140,14 @@ type TransitionConfig[Ctx any, Evt any] struct {
 	// Actions run after exit actions and before entry actions when the
 	// transition fires. Order: declaration order.
 	Actions []action.Action[Ctx, Evt]
+
+	// Meta is data for tooling and hosts about this transition: a button
+	// title, an order, a hidden flag. The engine never reads it. It follows the
+	// rules of StateNodeConfig.Meta and is accepted on On and OnDone
+	// transitions.
+	Meta map[string]any
+
+	meta json.RawMessage
 
 	// CondMeta documents the context fields Guard checks, for tooling only.
 	// It does not change whether the transition fires. Build it with Gates.
@@ -175,6 +189,7 @@ type stateNode[Ctx any, Evt any] struct {
 	// top level. nil unless typ == NodeFinal and an Output fn was configured.
 	outputFn func(Ctx) any
 	uiState  *describe.UIState[Ctx]
+	meta     json.RawMessage
 }
 
 // afterEntry is one delay bucket of a state's delayed transitions.
@@ -416,10 +431,18 @@ func sealNode[Ctx any, Evt any](node *stateNode[Ctx, Evt], statePath string, cfg
 	if cfg.UIState != nil && !cfg.UIState.Valid() {
 		return fmt.Errorf("%w: state %q has a UIState not built with UIStateOf", ErrInvalidConfig, statePath)
 	}
+	meta, err := sealMeta(cfg.Meta)
+	if err != nil {
+		return fmt.Errorf("%w: state %q %v", ErrInvalidConfig, statePath, err)
+	}
+	node.meta = meta
 	for _, delay := range slices.Sorted(maps.Keys(cfg.After)) {
 		for i, t := range cfg.After[delay] {
 			if t.CondMeta != nil {
 				return fmt.Errorf("%w: state %q after %s candidate %d has CondMeta, which is only published for On and OnDone transitions", ErrInvalidConfig, statePath, delay, i)
+			}
+			if len(t.Meta) > 0 {
+				return fmt.Errorf("%w: state %q after %s candidate %d has Meta, which is only published for On and OnDone transitions", ErrInvalidConfig, statePath, delay, i)
 			}
 		}
 	}
@@ -452,8 +475,24 @@ func sealTransitions[Ctx any, Evt any](where string, ts []TransitionConfig[Ctx, 
 			return nil, fmt.Errorf("%w: %s candidate %d %v", ErrInvalidConfig, where, i, err)
 		}
 		out[i].CondMeta = meta
+		if out[i].meta, err = sealMeta(out[i].Meta); err != nil {
+			return nil, fmt.Errorf("%w: %s candidate %d %v", ErrInvalidConfig, where, i, err)
+		}
 	}
 	return out, nil
+}
+
+// sealMeta encodes a Meta map so later changes to the caller's map cannot
+// reach the machine. An empty map encodes to nothing.
+func sealMeta(meta map[string]any) (json.RawMessage, error) {
+	if len(meta) == 0 {
+		return nil, nil
+	}
+	b, err := json.Marshal(meta)
+	if err != nil {
+		return nil, fmt.Errorf("has Meta that is not JSON-marshalable: %w", err)
+	}
+	return b, nil
 }
 
 // validateTargets walks every node and confirms each transition's Target

@@ -73,6 +73,8 @@ type StateNodeDescriptor struct {
 	States  map[string]StateNodeDescriptor    `json:"states,omitempty"`
 	// UIStateSchema is the JSON Schema of the state's UIState view model.
 	UIStateSchema json.RawMessage `json:"ui_state_schema,omitempty"`
+	// Meta is the state's StateNodeConfig.Meta as a JSON object.
+	Meta json.RawMessage `json:"meta,omitempty"`
 }
 
 // TransitionDescriptor is the descriptor for a single transition entry.
@@ -83,4 +85,6 @@ type TransitionDescriptor struct {
 	Guard    string           `json:"guard,omitempty"`
 	Actions  []string         `json:"actions,omitempty"`
 	CondMeta *action.CondMeta `json:"cond_meta,omitempty"`
+	// Meta is the transition's TransitionConfig.Meta as a JSON object.
+	Meta json.RawMessage `json:"meta,omitempty"`
 }
