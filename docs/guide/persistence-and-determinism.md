@@ -19,6 +19,12 @@ events, behaves exactly as the original would have, and re-serialises to the sam
 bytes. You can persist after every event and resume from the last snapshot with
 no observable difference.
 
+Because the machine is rebuilt from code, it can change between persist and
+restore. `NewActorFromSnapshot` checks the stored state value against the machine
+you pass and returns `engine.ErrSnapshotMismatch` when it names a state the
+machine no longer has, or leaves out a parallel region the machine now declares.
+Migrate such a snapshot before restoring it.
+
 ### What is not stored, and why
 
 Pending timers and pending invocations are *not* written to the snapshot. They
