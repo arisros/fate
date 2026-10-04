@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
@@ -53,6 +54,8 @@ type StateNodeConfig[Ctx any, Evt any] struct {
 
 	Output func(ctx Ctx) any
 
+	Meta map[string]any
+
 	UIState *describe.UIState[Ctx]
 }
 
@@ -69,6 +72,10 @@ type TransitionConfig[Ctx any, Evt any] struct {
 	Cond action.Cond
 
 	Actions []action.Action[Ctx, Evt]
+
+	Meta map[string]any
+
+	meta json.RawMessage
 
 	CondMeta *action.CondMeta
 }
@@ -98,6 +105,7 @@ type stateNode[Ctx any, Evt any] struct {
 	invokes      []effect.Invocation[Ctx, Evt]
 	outputFn     func(Ctx) any
 	uiState      *describe.UIState[Ctx]
+	meta         json.RawMessage
 }
 
 type afterEntry[Ctx any, Evt any] struct {
@@ -308,10 +316,18 @@ func sealNode[Ctx any, Evt any](node *stateNode[Ctx, Evt], statePath string, cfg
 	if cfg.UIState != nil && !cfg.UIState.Valid() {
 		return fmt.Errorf("%w: state %q has a UIState not built with UIStateOf", ErrInvalidConfig, statePath)
 	}
+	meta, err := sealMeta(cfg.Meta)
+	if err != nil {
+		return fmt.Errorf("%w: state %q %v", ErrInvalidConfig, statePath, err)
+	}
+	node.meta = meta
 	for _, delay := range slices.Sorted(maps.Keys(cfg.After)) {
 		for i, t := range cfg.After[delay] {
 			if t.CondMeta != nil {
 				return fmt.Errorf("%w: state %q after %s candidate %d has CondMeta, which is only published for On and OnDone transitions", ErrInvalidConfig, statePath, delay, i)
+			}
+			if len(t.Meta) > 0 {
+				return fmt.Errorf("%w: state %q after %s candidate %d has Meta, which is only published for On and OnDone transitions", ErrInvalidConfig, statePath, delay, i)
 			}
 		}
 	}
@@ -344,8 +360,22 @@ func sealTransitions[Ctx any, Evt any](where string, ts []TransitionConfig[Ctx, 
 			return nil, fmt.Errorf("%w: %s candidate %d %v", ErrInvalidConfig, where, i, err)
 		}
 		out[i].CondMeta = meta
+		if out[i].meta, err = sealMeta(out[i].Meta); err != nil {
+			return nil, fmt.Errorf("%w: %s candidate %d %v", ErrInvalidConfig, where, i, err)
+		}
 	}
 	return out, nil
+}
+
+func sealMeta(meta map[string]any) (json.RawMessage, error) {
+	if len(meta) == 0 {
+		return nil, nil
+	}
+	b, err := json.Marshal(meta)
+	if err != nil {
+		return nil, fmt.Errorf("has Meta that is not JSON-marshalable: %w", err)
+	}
+	return b, nil
 }
 
 func validateTargets[Ctx any, Evt any](root *stateNode[Ctx, Evt]) error {

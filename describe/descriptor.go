@@ -61,6 +61,7 @@ type StateNodeDescriptor struct {
 	OnDone        []TransitionDescriptor            `json:"on_done,omitempty"`
 	States        map[string]StateNodeDescriptor    `json:"states,omitempty"`
 	UIStateSchema json.RawMessage                   `json:"ui_state_schema,omitempty"`
+	Meta          json.RawMessage                   `json:"meta,omitempty"`
 }
 
 // TransitionDescriptor is the descriptor for a single transition entry.
@@ -70,4 +71,5 @@ type TransitionDescriptor struct {
 	Guard    string           `json:"guard,omitempty"`
 	Actions  []string         `json:"actions,omitempty"`
 	CondMeta *action.CondMeta `json:"cond_meta,omitempty"`
+	Meta     json.RawMessage  `json:"meta,omitempty"`
 }
