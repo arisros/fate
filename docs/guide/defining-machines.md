@@ -263,6 +263,26 @@ the state that declares each one: every active leaf uses the nearest state on
 its path with a `UIState`. A view model that fails to marshal or panics is
 returned as an error.
 
+## Meta
+
+`Meta` on a state or a transition carries data the engine never reads: a form
+name, a task type, a button title, a display order.
+
+```go
+"survey": {
+    Meta: map[string]any{"form": "survey_form"},
+    On: map[string][]engine.TransitionConfig[Ctx, Evt]{
+        "SUBMIT": {{Target: "review", Meta: map[string]any{"title": "Submit", "order": 1}}},
+    },
+},
+```
+
+`CreateMachine` encodes each `Meta` as JSON, so the values must be
+JSON-marshalable and later changes to your map do not reach the machine.
+`Describe` publishes it as `meta` on the state and on `On` and `OnDone`
+transitions, and `render.GraphJSON` carries it onto nodes and edges. It is
+rejected on `After` transitions, which the descriptor does not carry.
+
 ## Delayed transitions and invocations
 
 States can also declare `After` (delayed transitions) and `Invoke` (work to run
