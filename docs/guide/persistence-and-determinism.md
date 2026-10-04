@@ -45,6 +45,16 @@ codec or a concrete envelope if you intend to persist queued events of that type
 most machines drain their internal queue within a single `Send`, so this rarely
 bites.
 
+A context that holds values in an `any`, such as a `map[string]any`, loses their
+Go types in a snapshot: a `time.Time` restores as a string and an `int` as a
+`float64`, so a guard that type-asserts stops matching after a restore. Use a
+struct with typed fields for a context you persist, or give the context type its
+own `MarshalJSON` and `UnmarshalJSON`.
+
+`MachineConfig.CloneContext` covers the in-memory copies only. With it set,
+`NewActor` gives each actor its own copy of the seed context and `Actor.Preview`
+copies the context without going through JSON. It does not change `Persist`.
+
 ## Determinism
 
 Determinism means: the same machine driven by the same sequence of operations
