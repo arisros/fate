@@ -110,7 +110,9 @@ func (a *Actor[Ctx, Evt]) fireTimerLocked(id effect.TimerID) bool {
 	}
 
 	var zeroEvt Evt
+	a.beginStepLocked(StepTimer, "", string(id))
 	a.handleAfterLocked(binding.node, binding.entry, zeroEvt)
+	a.endStepLocked()
 	return true
 }
 
@@ -125,6 +127,7 @@ func (a *Actor[Ctx, Evt]) handleAfterLocked(source *stateNode[Ctx, Evt], ae afte
 			continue
 		}
 		if t.Target == "" {
+			a.recordTransitionLocked(source, nil, true, nil, nil)
 			a.runActions(t.Actions, evt)
 			return
 		}

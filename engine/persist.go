@@ -33,6 +33,9 @@ type persistedShape[Ctx any, Evt any] struct {
 	// fallback — the next compound exit re-populates it.
 	HistoryDeep map[string]persist.StateValue `json:"history_deep,omitempty"`
 	Queue       []Evt                         `json:"queue,omitempty"`
+	// Seq is the number of steps taken, so Step.Seq keeps counting after a
+	// restore. Snapshots written before it existed read as zero.
+	Seq uint64 `json:"seq,omitempty"`
 	// Output and Error capture a completed/failed actor's result. Pending
 	// timers and invocations are intentionally NOT stored: they are re-derived
 	// from the active configuration on restore (see ADR-0004).
@@ -69,6 +72,7 @@ func (a *Actor[Ctx, Evt]) persistedShapeLocked() persistedShape[Ctx, Evt] {
 		History:     history,
 		HistoryDeep: deep,
 		Queue:       a.queue.Snapshot(),
+		Seq:         a.seq,
 		Output:      a.output,
 		Error:       a.errText,
 	}
@@ -109,6 +113,7 @@ func NewActorFromSnapshot[Ctx any, Evt any](m *Machine[Ctx, Evt], persisted []by
 		status:            p.Status,
 		output:            p.Output,
 		errText:           p.Error,
+		seq:               p.Seq,
 		armed:             map[effect.TimerID]afterBinding[Ctx, Evt]{},
 		pendingInvokes:    map[effect.InvokeID]invokeBinding[Ctx, Evt]{},
 		historyMemory:     map[*stateNode[Ctx, Evt]]string{},

@@ -93,6 +93,7 @@ export default defineConfig({
           { text: '0005 · Temporal boundary', link: '/adr/0005-temporal-integration-boundary' },
           { text: '0006 · Dropped events', link: '/adr/0006-observability-of-dropped-events' },
           { text: '0007 · Package layout', link: '/adr/0007-package-layout' },
+          { text: '0008 · Step records', link: '/adr/0008-step-records' },
         ],
       },
     ],

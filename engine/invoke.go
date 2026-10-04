@@ -84,7 +84,7 @@ func (a *Actor[Ctx, Evt]) ResolveInvocation(id effect.InvokeID, output any) bool
 	if b.inv.OnDone == nil {
 		return true
 	}
-	a.deliverInvokeEventLocked(b.inv.OnDone(output))
+	a.deliverInvokeEventLocked(id, b.inv.OnDone(output))
 	return true
 }
 
@@ -107,7 +107,7 @@ func (a *Actor[Ctx, Evt]) RejectInvocation(id effect.InvokeID, err error) bool {
 	if b.inv.OnError == nil {
 		return true
 	}
-	a.deliverInvokeEventLocked(b.inv.OnError(err))
+	a.deliverInvokeEventLocked(id, b.inv.OnError(err))
 	return true
 }
 
@@ -130,8 +130,8 @@ func (a *Actor[Ctx, Evt]) settleInvokeLocked(id effect.InvokeID) (invokeBinding[
 
 // deliverInvokeEventLocked processes an invocation outcome event exactly like a
 // sent event: handle, drain raised events, settle finals, notify observers.
-func (a *Actor[Ctx, Evt]) deliverInvokeEventLocked(evt Evt) {
-	a.handleEventLocked(evt)
+func (a *Actor[Ctx, Evt]) deliverInvokeEventLocked(id effect.InvokeID, evt Evt) {
+	a.handleEventLocked(evt, StepInvoke, string(id))
 	a.drainQueueLocked()
 	a.settleFinalLocked(evt)
 	a.notifyLocked()
