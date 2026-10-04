@@ -3,6 +3,9 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/arisros/fate/action"
@@ -148,6 +151,54 @@ func (a *Actor[Ctx, Evt]) Can(evt Evt) bool {
 	}
 	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, internal.EventName(evt))
 	return len(selections) > 0
+}
+
+// NextEvents returns the names of the events the active configuration declares a transition for, sorted.
+func (a *Actor[Ctx, Evt]) NextEvents() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.status != persist.StatusRunning {
+		return nil
+	}
+	names := map[string]struct{}{}
+	for _, leaf := range resolveLeaves[Ctx, Evt](a.machine.root, a.value) {
+		for cursor := leaf; cursor != nil && cursor.name != ""; cursor = cursor.parent {
+			for name := range cursor.on {
+				if name != "*" {
+					names[name] = struct{}{}
+				}
+			}
+		}
+	}
+	return slices.Sorted(maps.Keys(names))
+}
+
+// Enabled returns the names from [Actor.NextEvents] whose event would fire a transition now, guards evaluated, sorted.
+func (a *Actor[Ctx, Evt]) Enabled(byName func(name string) (Evt, bool)) []string {
+	var enabled []string
+	for _, name := range a.NextEvents() {
+		if evt, ok := byName(name); ok && a.Can(evt) {
+			enabled = append(enabled, name)
+		}
+	}
+	return enabled
+}
+
+// Preview returns the snapshot [Actor.Send] would leave behind for evt, without changing the actor.
+func (a *Actor[Ctx, Evt]) Preview(evt Evt) (persist.Snapshot[Ctx], error) {
+	var zero persist.Snapshot[Ctx]
+	blob, err := a.Persist()
+	if err != nil {
+		return zero, fmt.Errorf("statechart: preview: %w", err)
+	}
+	trial, err := NewActorFromSnapshot[Ctx, Evt](a.machine, blob)
+	if err != nil {
+		return zero, fmt.Errorf("statechart: preview: %w", err)
+	}
+	if err := trial.Send(context.Background(), evt); err != nil {
+		return zero, err
+	}
+	return trial.Snapshot(), nil
 }
 
 // Snapshot returns the actor's current state.
