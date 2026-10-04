@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.8.0](https://github.com/arisros/fate/compare/v0.7.0...v0.8.0) (2026-10-04)
+
+
+### Added
+
+* add MachineConfig.CloneContext for in-memory context copies ([#40](https://github.com/arisros/fate/issues/40)) ([f855c1a](https://github.com/arisros/fate/commit/f855c1a72785754e5af4c7f9e246222c9f159772))
+* record what each step did and deliver it to SubscribeSteps ([#41](https://github.com/arisros/fate/issues/41)) ([a0d682f](https://github.com/arisros/fate/commit/a0d682fe6ca689c268e093b56407c928b59421e9))
+
 ## [0.7.0](https://github.com/arisros/fate/compare/v0.6.0...v0.7.0) (2026-10-04)
 
 
