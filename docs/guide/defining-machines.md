@@ -263,6 +263,26 @@ the state that declares each one: every active leaf uses the nearest state on
 its path with a `UIState`. A view model that fails to marshal or panics is
 returned as an error.
 
+## Linting a machine
+
+`CreateMachine` rejects what cannot run: an unknown target, a compound state
+without an initial child. `machine.Lint()` reports what runs but is probably a
+mistake:
+
+| Finding | Meaning |
+|---|---|
+| `unreachable` | no initial chain or transition enters the state |
+| `dead_end` | the state is not final and no transition on it or an ancestor leaves it |
+| `on_done_never_fires` | the state declares `OnDone` and can never complete |
+
+Guards are assumed able to pass. Call it from a test:
+
+```go
+if findings := machine.Lint(); len(findings) > 0 {
+    t.Fatalf("machine has findings: %+v", findings)
+}
+```
+
 ## Delayed transitions and invocations
 
 States can also declare `After` (delayed transitions) and `Invoke` (work to run
