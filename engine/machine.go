@@ -22,6 +22,8 @@ type MachineConfig[Ctx any, Evt any] struct {
 
 	Context Ctx
 
+	CloneContext func(Ctx) Ctx
+
 	States map[string]StateNodeConfig[Ctx, Evt]
 }
 
@@ -75,6 +77,7 @@ type TransitionConfig[Ctx any, Evt any] struct {
 type Machine[Ctx any, Evt any] struct {
 	id      string
 	context Ctx
+	clone   func(Ctx) Ctx
 	root    *stateNode[Ctx, Evt]
 }
 
@@ -105,7 +108,12 @@ type afterEntry[Ctx any, Evt any] struct {
 // ID returns the machine's configured identifier.
 func (m *Machine[Ctx, Evt]) ID() string { return m.id }
 
-func (m *Machine[Ctx, Evt]) initialContext() Ctx { return m.context }
+func (m *Machine[Ctx, Evt]) initialContext() Ctx {
+	if m.clone != nil {
+		return m.clone(m.context)
+	}
+	return m.context
+}
 
 func (m *Machine[Ctx, Evt]) initialValue() persist.StateValue {
 	return m.root.initialValue()
@@ -179,7 +187,7 @@ func CreateMachine[Ctx any, Evt any](cfg MachineConfig[Ctx, Evt]) (*Machine[Ctx,
 		return nil, err
 	}
 
-	return &Machine[Ctx, Evt]{id: cfg.ID, context: cfg.Context, root: root}, nil
+	return &Machine[Ctx, Evt]{id: cfg.ID, context: cfg.Context, clone: cfg.CloneContext, root: root}, nil
 }
 
 func buildNode[Ctx any, Evt any](
