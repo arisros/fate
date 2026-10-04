@@ -190,7 +190,9 @@ with `|`.
 ## Final states and completion
 
 A `NodeFinal` state is terminal for its region. When a compound state's active
-child reaches a final state, the parent's `OnDone` transitions fire. When the
+child reaches a final state, the parent's `OnDone` transitions fire. A parallel
+state completes when every region has, and then fires its own `OnDone`, which is
+how regions join. When the
 top-level child completes, the actor's status becomes `StatusDone` and further
 events are ignored. A final state may carry an `Output` function whose result is
 captured into the snapshot.
