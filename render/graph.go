@@ -26,6 +26,8 @@ type GraphNode struct {
 	Exit    []string `json:"exit,omitempty"`
 	// UIStateSchema is the JSON Schema of the state's UIState view model.
 	UIStateSchema json.RawMessage `json:"ui_state_schema,omitempty"`
+	// Meta is the state's Meta as a JSON object.
+	Meta json.RawMessage `json:"meta,omitempty"`
 }
 
 // GraphEdge is one transition. Source/Target are qualified node ids; Event is
@@ -40,6 +42,8 @@ type GraphEdge struct {
 	Actions  []string         `json:"actions,omitempty"`
 	Internal bool             `json:"internal,omitempty"`
 	CondMeta *action.CondMeta `json:"cond_meta,omitempty"`
+	// Meta is the transition's Meta as a JSON object.
+	Meta json.RawMessage `json:"meta,omitempty"`
 }
 
 // Graph is the full resolved structure for one machine.
@@ -71,6 +75,7 @@ func GraphJSON(d describe.MachineDescriptor) Graph {
 			Entry:         node.Entry,
 			Exit:          node.Exit,
 			UIStateSchema: node.UIStateSchema,
+			Meta:          node.Meta,
 		}
 		g.Nodes = append(g.Nodes, n)
 
@@ -112,6 +117,7 @@ func edgeFor(srcPath, event string, t describe.TransitionDescriptor, idx descrip
 		Actions:  t.Actions,
 		Internal: t.Internal,
 		CondMeta: t.CondMeta,
+		Meta:     t.Meta,
 	}
 }
 

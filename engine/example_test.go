@@ -219,3 +219,34 @@ func ExampleActor_SubscribeSteps() {
 	// 2 event SUBMIT [draft] [review]
 	// 3 event RETURN [review] [review]
 }
+
+// Example_meta attaches host data to a state and a transition and reads it back
+// from the descriptor, where a form builder or a viewer would find it.
+func Example_meta() {
+	type state = engine.StateNodeConfig[struct{}, string]
+	type transition = engine.TransitionConfig[struct{}, string]
+
+	m, err := engine.CreateMachine(engine.MachineConfig[struct{}, string]{
+		ID:      "task",
+		Initial: "signup",
+		States: map[string]state{
+			"signup": {
+				Meta: map[string]any{"form": "signup_form"},
+				On: map[string][]transition{
+					"SUBMIT": {{Target: "done", Meta: map[string]any{"title": "Submit", "order": 1}}},
+				},
+			},
+			"done": {Type: engine.NodeFinal},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	signup := m.Describe().States["signup"]
+	fmt.Println(string(signup.Meta))
+	fmt.Println(string(signup.On["SUBMIT"][0].Meta))
+	// Output:
+	// {"form":"signup_form"}
+	// {"order":1,"title":"Submit"}
+}
