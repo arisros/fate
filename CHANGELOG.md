@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.7.0](https://github.com/arisros/fate/compare/v0.6.0...v0.7.0) (2026-10-04)
+
+
+### Added
+
+* list the next and enabled events and preview an event without sending it ([#38](https://github.com/arisros/fate/issues/38)) ([c33fa80](https://github.com/arisros/fate/commit/c33fa8005edd7466176f02fdf388d0f41d9f2dfc))
+
+
+### Fixed
+
+* complete parallel states and fire OnDone in every region ([#36](https://github.com/arisros/fate/issues/36)) ([a7035f7](https://github.com/arisros/fate/commit/a7035f767ef5499289f9cb01032e71a83b5c7891))
+* reject a snapshot whose state value the machine does not have ([#37](https://github.com/arisros/fate/issues/37)) ([345ad13](https://github.com/arisros/fate/commit/345ad13a98ad2cffa6e5c8e30552e0c1c4060e05))
+
 ## [0.6.0](https://github.com/arisros/fate/compare/v0.5.1...v0.6.0) (2026-10-03)
 
 
