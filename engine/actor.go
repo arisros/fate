@@ -269,19 +269,20 @@ func (a *Actor[Ctx, Evt]) Enabled(byName func(name string) (Evt, bool)) []string
 // changing the actor. Compare its Value with the current snapshot's to see
 // where the event leads, or pass both to diff.Snapshots.
 //
-// The event runs on a copy restored from [Actor.Persist], so the copy shares no
-// context, history or queue with the actor, and Preview fails where Persist
-// does. An event no transition handles yields the current snapshot unchanged;
+// The event runs on a copy of the actor. When the machine sets
+// MachineConfig.CloneContext the copy's context comes from it. Otherwise the
+// copy is restored from [Actor.Persist], so Preview fails where Persist does
+// and a value held in an any comes back as its JSON form (a time.Time as a
+// string, an int as a float64), which a guard that type-asserts will not
+// match.
+//
+// An event no transition handles yields the current snapshot unchanged;
 // [Actor.Can] tells that apart from a transition that keeps the same state.
 // Preview returns the error Send would: ErrActorStopped for an actor that is
 // not running.
 func (a *Actor[Ctx, Evt]) Preview(evt Evt) (persist.Snapshot[Ctx], error) {
 	var zero persist.Snapshot[Ctx]
-	blob, err := a.Persist()
-	if err != nil {
-		return zero, fmt.Errorf("statechart: preview: %w", err)
-	}
-	trial, err := NewActorFromSnapshot[Ctx, Evt](a.machine, blob)
+	trial, err := a.copyForPreview()
 	if err != nil {
 		return zero, fmt.Errorf("statechart: preview: %w", err)
 	}
@@ -289,6 +290,46 @@ func (a *Actor[Ctx, Evt]) Preview(evt Evt) (persist.Snapshot[Ctx], error) {
 		return zero, err
 	}
 	return trial.Snapshot(), nil
+}
+
+func (a *Actor[Ctx, Evt]) copyForPreview() (*Actor[Ctx, Evt], error) {
+	if a.machine.clone == nil {
+		blob, err := a.Persist()
+		if err != nil {
+			return nil, err
+		}
+		return NewActorFromSnapshot[Ctx, Evt](a.machine, blob)
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	trial := &Actor[Ctx, Evt]{
+		machine:           a.machine,
+		value:             cloneValue(a.value),
+		ctx:               a.machine.clone(a.ctx),
+		status:            a.status,
+		output:            a.output,
+		errText:           a.errText,
+		historyMemory:     maps.Clone(a.historyMemory),
+		historyDeepMemory: make(map[*stateNode[Ctx, Evt]]persist.StateValue, len(a.historyDeepMemory)),
+		armed:             maps.Clone(a.armed),
+		pendingInvokes:    maps.Clone(a.pendingInvokes),
+	}
+	for node, sub := range a.historyDeepMemory {
+		trial.historyDeepMemory[node] = cloneValue(sub)
+	}
+	trial.queue.Restore(a.queue.Snapshot())
+	return trial, nil
+}
+
+func cloneValue(v persist.StateValue) persist.StateValue {
+	if v.Children == nil {
+		return v
+	}
+	out := persist.StateValue{Leaf: v.Leaf, Children: make(map[string]persist.StateValue, len(v.Children))}
+	for name, child := range v.Children {
+		out.Children[name] = cloneValue(child)
+	}
+	return out
 }
 
 // Snapshot returns the actor's current state. Safe to call concurrently.
