@@ -294,45 +294,79 @@ func (a *Actor[Ctx, Evt]) recordHistoryLocked(parent *stateNode[Ctx, Evt]) {
 // Bounded so a cyclic onDone cannot loop forever.
 func (a *Actor[Ctx, Evt]) settleFinalLocked(triggerEvt Evt) {
 	for i := 0; i < maxQueueDrain; i++ {
-		leaf := resolveLeaf[Ctx, Evt](a.machine.root, a.value)
-		if leaf == nil || leaf.typ != NodeFinal {
+		leaves := resolveLeaves[Ctx, Evt](a.machine.root, a.value)
+		source, target, chosen, ok := a.nextDoneLocked(leaves, triggerEvt)
+		if !ok {
+			a.completeLocked(leaves)
 			return
 		}
-		parent := leaf.parent
-		if parent == nil || parent.name == "" {
-			a.captureOutputLocked(leaf)
-			a.status = persist.StatusDone
-			return
-		}
-		var chosen TransitionConfig[Ctx, Evt]
-		matched := false
-		for _, t := range parent.onDone {
-			if transitionPasses(t, a.ctx, triggerEvt, a.value) {
-				chosen = t
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			if parent.parent == nil || parent.parent.name == "" {
-				a.captureOutputLocked(leaf)
-				a.status = persist.StatusDone
-			}
-			return
-		}
-		target := resolveTarget(parent, chosen.Target)
-		if target == nil {
-			return
-		}
-		target = a.resolveHistoryRedirect(target)
-		if target == nil {
-			return
-		}
-		a.runTransitionLocked(parent, target, chosen, triggerEvt)
+		a.runTransitionLocked(source, target, chosen, triggerEvt)
 	}
 	if a.logger != nil {
 		a.logger("statechart: onDone settle cap reached; configuration may be ill-formed")
 	}
+}
+
+func (a *Actor[Ctx, Evt]) nextDoneLocked(
+	leaves []*stateNode[Ctx, Evt],
+	triggerEvt Evt,
+) (source, target *stateNode[Ctx, Evt], chosen TransitionConfig[Ctx, Evt], ok bool) {
+	for _, leaf := range leaves {
+		if leaf.typ != NodeFinal {
+			continue
+		}
+		for n := leaf.parent; n != nil && n.name != "" && isDone(n, leaves); n = n.parent {
+			for _, t := range n.onDone {
+				if !transitionPasses(t, a.ctx, triggerEvt, a.value) {
+					continue
+				}
+				if tgt := a.resolveHistoryRedirect(resolveTarget(n, t.Target)); tgt != nil {
+					return n, tgt, t, true
+				}
+				break
+			}
+		}
+	}
+	return nil, nil, chosen, false
+}
+
+func (a *Actor[Ctx, Evt]) completeLocked(leaves []*stateNode[Ctx, Evt]) {
+	if len(leaves) == 0 {
+		return
+	}
+	top := leaves[0]
+	for top.parent != nil && top.parent.name != "" {
+		top = top.parent
+	}
+	if top.typ != NodeFinal && !isDone(top, leaves) {
+		return
+	}
+	for _, leaf := range leaves {
+		if leaf.typ == NodeFinal && leaf.outputFn != nil {
+			a.captureOutputLocked(leaf)
+			break
+		}
+	}
+	a.status = persist.StatusDone
+}
+
+func isDone[Ctx any, Evt any](n *stateNode[Ctx, Evt], leaves []*stateNode[Ctx, Evt]) bool {
+	switch n.typ {
+	case NodeCompound:
+		for _, leaf := range leaves {
+			if leaf.typ == NodeFinal && leaf.parent == n {
+				return true
+			}
+		}
+	case NodeParallel:
+		for _, region := range n.children {
+			if !isDone(region, leaves) {
+				return false
+			}
+		}
+		return len(n.children) > 0
+	}
+	return false
 }
 
 func (a *Actor[Ctx, Evt]) drainQueueLocked() {

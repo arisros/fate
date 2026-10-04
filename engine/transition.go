@@ -44,14 +44,6 @@ func selectTransitions[Ctx any, Evt any](
 	return out
 }
 
-func resolveLeaf[Ctx any, Evt any](root *stateNode[Ctx, Evt], v persist.StateValue) *stateNode[Ctx, Evt] {
-	leaves := resolveLeaves[Ctx, Evt](root, v)
-	if len(leaves) == 0 {
-		return nil
-	}
-	return leaves[0]
-}
-
 func resolveLeaves[Ctx any, Evt any](root *stateNode[Ctx, Evt], v persist.StateValue) []*stateNode[Ctx, Evt] {
 	var out []*stateNode[Ctx, Evt]
 	walkValue[Ctx, Evt](root, v, &out)
