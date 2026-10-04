@@ -9,4 +9,5 @@ type TimerID string
 type PendingTimer struct {
 	ID    TimerID
 	Delay time.Duration
+	State string
 }

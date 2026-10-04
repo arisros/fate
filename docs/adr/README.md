@@ -12,6 +12,7 @@ reasoning at the time they were made.
 | [0005](./0005-temporal-integration-boundary.md) | Temporal integration boundary | Accepted |
 | [0006](./0006-observability-of-dropped-events.md) | Observability of dropped events and stale effects | Accepted |
 | [0007](./0007-package-layout.md) | Split the engine into packages | Accepted |
+| [0008](./0008-step-records.md) | Step records | Accepted |
 
 Planned (to be written as the corresponding work lands):
 
