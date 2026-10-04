@@ -13,13 +13,14 @@ export default defineConfig({
     'A statechart engine for Go. Hierarchical states, parallel regions, and history, with no dependencies beyond the standard library.',
   lang: 'en-US',
   cleanUrls: true,
+  appearance: 'dark',
 
   srcExclude: ['README.md'],
   rewrites: { 'adr/README.md': 'adr/index.md' },
 
   head: [
     ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
-    ['meta', { name: 'theme-color', content: '#c2ef4e' }],
+    ['meta', { name: 'theme-color', content: '#0b1220' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: 'fate — a statechart engine for Go' }],
     [
