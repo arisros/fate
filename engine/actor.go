@@ -16,8 +16,8 @@ import (
 const maxQueueDrain = 1024
 
 // Actor is the runtime instance of a statechart Machine. One Actor is
-// instantiated per workflow execution / unit test. NOT safe for use inside
-// Temporal workflows — use WorkflowActor (P6) for that.
+// instantiated per workflow execution / unit test. It reads no clock and starts
+// no goroutine, so it is safe to drive from a Temporal workflow goroutine.
 type Actor[Ctx any, Evt any] struct {
 	machine *Machine[Ctx, Evt]
 
@@ -419,69 +419,100 @@ func (a *Actor[Ctx, Evt]) recordHistoryLocked(parent *stateNode[Ctx, Evt]) {
 }
 
 // settleFinalLocked propagates final-state completion upward through the
-// hierarchy. After each transition (or initial entry) we may land in a
-// final leaf; the enclosing compound's onDone (if any) fires immediately,
-// which may transition the actor to another state, which may also land
-// in a final leaf, and so on.
+// hierarchy. A compound state is done when its active child is a final state,
+// and a parallel state is done when every one of its regions is done. Each
+// done state fires the first of its OnDone transitions that passes, innermost
+// first and regions in alphabetical order, and the configuration that results
+// is settled again.
 //
-// When a final state is reached at the top level (parent == synthetic root)
-// and no further onDone consumes it, the actor's status becomes
-// StatusDone.
+// When nothing more can fire and the top-level state is itself final or done,
+// the actor's status becomes StatusDone.
 //
 // The bounded loop guards against ill-formed configurations that could
 // otherwise loop forever (e.g. onDone targeting a final state of the same
 // parent).
 func (a *Actor[Ctx, Evt]) settleFinalLocked(triggerEvt Evt) {
 	for i := 0; i < maxQueueDrain; i++ {
-		leaf := resolveLeaf[Ctx, Evt](a.machine.root, a.value)
-		if leaf == nil || leaf.typ != NodeFinal {
+		leaves := resolveLeaves[Ctx, Evt](a.machine.root, a.value)
+		source, target, chosen, ok := a.nextDoneLocked(leaves, triggerEvt)
+		if !ok {
+			a.completeLocked(leaves)
 			return
 		}
-		parent := leaf.parent
-		if parent == nil || parent.name == "" {
-			// Reached a final state at the top level — actor is done.
-			a.captureOutputLocked(leaf)
-			a.status = persist.StatusDone
-			return
-		}
-		// Evaluate parent.onDone candidates.
-		var chosen TransitionConfig[Ctx, Evt]
-		matched := false
-		for _, t := range parent.onDone {
-			if transitionPasses(t, a.ctx, triggerEvt, a.value) {
-				chosen = t
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			// No onDone wired; this region is permanently done but the
-			// surrounding configuration carries on. Set status only when
-			// it's the top-level child that completed.
-			if parent.parent == nil || parent.parent.name == "" {
-				a.captureOutputLocked(leaf)
-				a.status = persist.StatusDone
-			}
-			return
-		}
-		// Run the onDone transition through the shared apply path so
-		// history recording and any future SCXML-related concerns stay
-		// in one place.
-		target := resolveTarget(parent, chosen.Target)
-		if target == nil {
-			// Validated at construction time, so unreachable.
-			return
-		}
-		target = a.resolveHistoryRedirect(target)
-		if target == nil {
-			return
-		}
-		a.runTransitionLocked(parent, target, chosen, triggerEvt)
-		// Loop: the new value may itself land in a final state.
+		a.runTransitionLocked(source, target, chosen, triggerEvt)
 	}
 	if a.logger != nil {
 		a.logger("statechart: onDone settle cap reached; configuration may be ill-formed")
 	}
+}
+
+// nextDoneLocked finds the first done state with an OnDone transition that
+// passes, walking up from each active final leaf.
+func (a *Actor[Ctx, Evt]) nextDoneLocked(
+	leaves []*stateNode[Ctx, Evt],
+	triggerEvt Evt,
+) (source, target *stateNode[Ctx, Evt], chosen TransitionConfig[Ctx, Evt], ok bool) {
+	for _, leaf := range leaves {
+		if leaf.typ != NodeFinal {
+			continue
+		}
+		for n := leaf.parent; n != nil && n.name != "" && isDone(n, leaves); n = n.parent {
+			for _, t := range n.onDone {
+				if !transitionPasses(t, a.ctx, triggerEvt, a.value) {
+					continue
+				}
+				if tgt := a.resolveHistoryRedirect(resolveTarget(n, t.Target)); tgt != nil {
+					return n, tgt, t, true
+				}
+				break
+			}
+		}
+	}
+	return nil, nil, chosen, false
+}
+
+// completeLocked marks the actor done when its top-level state is final or
+// done, capturing the output of the first active final state that declares one.
+func (a *Actor[Ctx, Evt]) completeLocked(leaves []*stateNode[Ctx, Evt]) {
+	if len(leaves) == 0 {
+		return
+	}
+	top := leaves[0]
+	for top.parent != nil && top.parent.name != "" {
+		top = top.parent
+	}
+	if top.typ != NodeFinal && !isDone(top, leaves) {
+		return
+	}
+	for _, leaf := range leaves {
+		if leaf.typ == NodeFinal && leaf.outputFn != nil {
+			a.captureOutputLocked(leaf)
+			break
+		}
+	}
+	a.status = persist.StatusDone
+}
+
+// isDone reports whether n has completed under the active leaves: a compound
+// state whose active child is final, or a parallel state whose regions are all
+// done.
+func isDone[Ctx any, Evt any](n *stateNode[Ctx, Evt], leaves []*stateNode[Ctx, Evt]) bool {
+	switch n.typ {
+	case NodeCompound:
+		for _, leaf := range leaves {
+			if leaf.typ == NodeFinal && leaf.parent == n {
+				return true
+			}
+		}
+	case NodeParallel:
+		for _, region := range n.children {
+			if !isDone(region, leaves) {
+				return false
+			}
+		}
+		return len(n.children) > 0
+	}
+	return false
 }
 
 // drainQueueLocked processes raised events until the queue is empty or the
