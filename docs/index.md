@@ -1,21 +1,6 @@
 ---
 layout: home
 
-hero:
-  text: A statechart engine for Go that only <em>computes</em>.
-  tagline: Hierarchical states, parallel regions, and history, with no dependencies beyond the standard library.
-  install: go get github.com/arisros/fate
-  actions:
-    - theme: brand
-      text: Get started
-      link: /guide/getting-started
-    - theme: alt
-      text: Concepts
-      link: /concepts
-    - theme: alt
-      text: GitHub
-      link: https://github.com/arisros/fate
-
 highlights:
   - title: Statecharts, not flat FSMs
     details: Compound and parallel states, deep and shallow history, guards, actions, and final states.

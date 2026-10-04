@@ -2,10 +2,9 @@ import { h } from 'vue'
 import type { Theme } from 'vitepress'
 import DefaultTheme from 'vitepress/theme-without-fonts'
 import '@fontsource-variable/rubik/wght.css'
-import '@fontsource-variable/jetbrains-mono/wght.css'
-import HeroChart from './components/HeroChart.vue'
-import HeroInstall from './components/HeroInstall.vue'
-import HomeFeatures from './components/HomeFeatures.vue'
+import '@fontsource/ibm-plex-mono/400.css'
+import '@fontsource/ibm-plex-mono/500.css'
+import FateHome from './components/FateHome.vue'
 import NavWordmark from './components/NavWordmark.vue'
 import './custom.css'
 
@@ -14,8 +13,6 @@ export default {
   Layout: () =>
     h(DefaultTheme.Layout, null, {
       'nav-bar-title-after': () => h(NavWordmark),
-      'home-hero-image': () => h(HeroChart),
-      'home-hero-actions-after': () => h(HeroInstall),
-      'home-features-after': () => h(HomeFeatures),
+      'home-hero-before': () => h(FateHome),
     }),
 } satisfies Theme
