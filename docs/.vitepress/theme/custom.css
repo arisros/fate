@@ -1,65 +1,65 @@
 :root {
-  --fate-lime: #c2ef4e;
-  --fate-on-lime: #0e0a1a;
-  --fate-faint: #b4bac4;
+  --fate-bg: #eef3fa;
+  --fate-bg-2: #e4ebf5;
+  --fate-panel: #ffffff;
+  --fate-panel-2: #f1f5fb;
+  --fate-fg: #16203a;
+  --fate-muted: #5b6885;
+  --fate-line: #d6deec;
+  --fate-edge: #7d93b8;
+  --fate-accent: #0b6bcb;
+  --fate-accent-hover: #0a5cb0;
+  --fate-accent-fg: #ffffff;
+  --fate-active: #c2ef4e;
+  --fate-active-fg: #0b1220;
+  --fate-active-line: #5f8700;
 
   --vp-font-family-base: 'Rubik Variable', system-ui, sans-serif;
-  --vp-font-family-mono: 'JetBrains Mono Variable', ui-monospace, Menlo, monospace;
+  --vp-font-family-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
 
-  --vp-c-bg: #ffffff;
-  --vp-c-bg-alt: #f6f7f3;
-  --vp-c-bg-elv: #ffffff;
-  --vp-c-bg-soft: #f4f6ef;
-  --vp-c-text-1: #1c2028;
-  --vp-c-text-2: #5c6470;
-  --vp-c-divider: #e2e5dc;
-  --vp-c-gutter: #e2e5dc;
+  --vp-c-bg: var(--fate-bg);
+  --vp-c-bg-alt: var(--fate-bg-2);
+  --vp-c-bg-elv: var(--fate-panel);
+  --vp-c-bg-soft: var(--fate-bg-2);
+  --vp-c-text-1: var(--fate-fg);
+  --vp-c-text-2: var(--fate-muted);
+  --vp-c-divider: var(--fate-line);
+  --vp-c-gutter: var(--fate-line);
+  --vp-c-border: var(--fate-line);
 
-  --vp-c-brand-1: #5f8700;
-  --vp-c-brand-2: #4c6c00;
-  --vp-c-brand-3: #5f8700;
-  --vp-c-brand-soft: rgba(194, 239, 78, 0.28);
+  --vp-c-brand-1: var(--fate-accent);
+  --vp-c-brand-2: var(--fate-accent-hover);
+  --vp-c-brand-3: var(--fate-accent);
+  --vp-c-brand-soft: rgba(11, 107, 203, 0.12);
 
-  --vp-button-brand-border: var(--fate-lime);
-  --vp-button-brand-text: var(--fate-on-lime);
-  --vp-button-brand-bg: var(--fate-lime);
-  --vp-button-brand-hover-border: #d1f47a;
-  --vp-button-brand-hover-text: var(--fate-on-lime);
-  --vp-button-brand-hover-bg: #d1f47a;
-  --vp-button-brand-active-border: #aedb38;
-  --vp-button-brand-active-text: var(--fate-on-lime);
-  --vp-button-brand-active-bg: #aedb38;
+  --vp-button-brand-border: var(--fate-accent);
+  --vp-button-brand-text: var(--fate-accent-fg);
+  --vp-button-brand-bg: var(--fate-accent);
+  --vp-button-brand-hover-border: var(--fate-accent-hover);
+  --vp-button-brand-hover-text: var(--fate-accent-fg);
+  --vp-button-brand-hover-bg: var(--fate-accent-hover);
+  --vp-button-brand-active-border: var(--fate-accent-hover);
+  --vp-button-brand-active-text: var(--fate-accent-fg);
+  --vp-button-brand-active-bg: var(--fate-accent-hover);
 
-  --vp-button-alt-border: var(--vp-c-text-1);
-  --vp-button-alt-text: var(--vp-c-text-1);
-  --vp-button-alt-bg: transparent;
-  --vp-button-alt-hover-border: var(--vp-c-text-1);
-  --vp-button-alt-hover-text: var(--vp-c-text-1);
-  --vp-button-alt-hover-bg: var(--vp-c-bg-soft);
-  --vp-button-alt-active-border: var(--vp-c-text-1);
-  --vp-button-alt-active-text: var(--vp-c-text-1);
-  --vp-button-alt-active-bg: var(--vp-c-divider);
-
-  --vp-home-hero-name-color: var(--vp-c-brand-1);
   --vp-nav-logo-height: 28px;
 }
 
 .dark {
-  --fate-faint: #4a515c;
+  --fate-bg: #0b1220;
+  --fate-bg-2: #0f1830;
+  --fate-panel: #14203a;
+  --fate-panel-2: #1a2947;
+  --fate-fg: #e6ecf7;
+  --fate-muted: #8d9bb8;
+  --fate-line: #26365a;
+  --fate-edge: #5b7bb0;
+  --fate-accent: #5cc8ff;
+  --fate-accent-hover: #86d6ff;
+  --fate-accent-fg: #0b1220;
+  --fate-active-line: #c2ef4e;
 
-  --vp-c-bg: #14161a;
-  --vp-c-bg-alt: #101215;
-  --vp-c-bg-elv: #1a1d22;
-  --vp-c-bg-soft: #1a1d22;
-  --vp-c-text-1: #e4e6ea;
-  --vp-c-text-2: #8b93a0;
-  --vp-c-divider: #272b31;
-  --vp-c-gutter: #0d0f11;
-  --vp-c-border: #30353c;
-
-  --vp-c-brand-1: #c2ef4e;
-  --vp-c-brand-2: #d1f47a;
-  --vp-c-brand-soft: rgba(194, 239, 78, 0.14);
+  --vp-c-brand-soft: rgba(92, 200, 255, 0.14);
 }
 
 .VPNavBarMenuLink.active {
@@ -67,82 +67,74 @@
   box-shadow: inset 0 -2px 0 var(--vp-c-brand-1);
 }
 
-.VPHome .VPHero.has-image .container {
-  gap: 32px 40px;
-  text-align: left;
+.VPHome {
+  margin-bottom: 0 !important;
 }
 
-.VPHome .VPHero .main {
-  order: 1;
-  min-width: 0;
+.fate-wrap {
+  margin: 0 auto;
+  padding: 0 24px;
+  max-width: 1200px;
 }
 
-.VPHome .VPHero .heading .text {
-  margin: 0;
-  max-width: 13em;
-  letter-spacing: -0.02em;
+.fate-label {
+  line-height: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fate-muted);
+}
+
+.fate-h2 {
   line-height: 1.05;
-  font-size: clamp(32px, 5vw, 48px);
+  font-size: clamp(30px, 3.6vw, 48px);
   font-weight: 600;
-  white-space: normal;
+  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 
-.VPHome .VPHero .heading em {
-  font-style: normal;
-  box-shadow: inset 0 -0.32em 0 var(--fate-lime);
+.fate-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--fate-line);
+  border-radius: 6px;
+  padding: 0 8px;
+  height: 24px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  background: var(--fate-bg-2);
 }
 
-.VPHome .VPHero.has-image .tagline {
-  margin: 0;
-  padding-top: 18px;
-  max-width: 44ch;
-  line-height: 1.5;
-  font-size: 17px;
-  font-weight: 400;
-  white-space: normal;
+.fate-path {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid currentColor;
+  border-radius: 8px;
+  padding: 0 8px;
+  height: 24px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--fate-active-line);
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
-.VPHome .VPHero.has-image .actions {
-  justify-content: flex-start;
-  padding-top: 20px;
-}
-
-.VPHome .VPHero .actions .VPButton {
-  border-width: 1.5px;
-  border-radius: 10px;
-  padding: 0 18px;
+.fate-more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
   font-weight: 500;
+  color: var(--fate-accent);
 }
 
-.VPHome .VPHero .image {
-  order: 2;
-  margin: 0;
+.fate-more:hover {
+  color: var(--fate-accent-hover);
 }
 
-.VPHome .VPHero .image-container {
-  display: block;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 460px;
-  height: auto;
-  transform: none;
-}
-
-.VPHome .VPHero .image-bg {
-  display: none;
-}
-
-@media (min-width: 960px) {
-  .VPHome .VPHero.has-image .container {
-    align-items: center;
-  }
-
-  .VPHome .VPHero.has-image .main,
-  .VPHome .VPHero .image {
-    flex: 1 1 0;
-    width: auto;
-    max-width: none;
-    min-height: 0;
+@media (min-width: 640px) {
+  .fate-wrap {
+    padding: 0 32px;
   }
 }
