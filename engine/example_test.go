@@ -188,3 +188,34 @@ func ExampleActor_NextEvents() {
 	// rejected done
 	// open
 }
+
+// ExampleActor_SubscribeSteps records what each step of an actor did: which
+// transition fired and which states were left and entered.
+func ExampleActor_SubscribeSteps() {
+	type state = engine.StateNodeConfig[struct{}, string]
+	type transition = engine.TransitionConfig[struct{}, string]
+
+	m, err := engine.CreateMachine(engine.MachineConfig[struct{}, string]{
+		ID:      "task",
+		Initial: "draft",
+		States: map[string]state{
+			"draft":  {On: map[string][]transition{"SUBMIT": {{Target: "review"}}}},
+			"review": {On: map[string][]transition{"RETURN": {{Target: "review"}}}},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	a := engine.NewActor(m)
+	a.SubscribeSteps(func(s engine.Step) {
+		fmt.Println(s.Seq, s.Cause, s.Event, s.Exited, s.Entered)
+	})
+	_ = a.Start(context.Background())
+	_ = a.Send(context.Background(), "SUBMIT")
+	_ = a.Send(context.Background(), "RETURN")
+	// Output:
+	// 1 start  [] [draft]
+	// 2 event SUBMIT [draft] [review]
+	// 3 event RETURN [review] [review]
+}
