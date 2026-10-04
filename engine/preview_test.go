@@ -3,8 +3,10 @@ package engine_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/arisros/fate/action"
 	"github.com/arisros/fate/engine"
@@ -166,5 +168,98 @@ func TestEnabled_EvaluatesGuardsAndSkipsUnknownNames(t *testing.T) {
 	_ = a.Start(context.Background())
 	if got, want := a.Enabled(byName), []string{"REJECT"}; !slices.Equal(got, want) {
 		t.Errorf("Enabled %v, want %v", got, want)
+	}
+}
+
+func cloneMachine(t *testing.T, clone func(map[string]any) map[string]any) *engine.Machine[map[string]any, string] {
+	t.Helper()
+	type state = engine.StateNodeConfig[map[string]any, string]
+	type trans = engine.TransitionConfig[map[string]any, string]
+	due := func(c map[string]any, _ string) bool {
+		at, ok := c["due"].(time.Time)
+		return ok && !at.IsZero()
+	}
+	mark := action.Assign(func(c map[string]any, e string) map[string]any { c["last"] = e; return c })
+	m, err := engine.CreateMachine(engine.MachineConfig[map[string]any, string]{
+		ID: "task", Initial: "open",
+		Context:      map[string]any{"due": time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)},
+		CloneContext: clone,
+		States: map[string]state{
+			"open": {
+				Type: engine.NodeCompound, Initial: "draft",
+				On: map[string][]trans{"CLOSE": {{Target: "closed", Guard: due, Actions: []action.Action[map[string]any, string]{mark}}}},
+				States: map[string]state{
+					"draft":  {On: map[string][]trans{"EDIT": {{Target: "edited"}}}},
+					"edited": {},
+					"hist":   {Type: engine.NodeHistory, History: engine.HistoryDeep},
+				},
+			},
+			"closed": {On: map[string][]trans{"REOPEN": {{Target: "open.hist"}}}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateMachine: %v", err)
+	}
+	return m
+}
+
+func TestPreview_CloneContextKeepsGoTypes(t *testing.T) {
+	a := engine.NewActor(cloneMachine(t, maps.Clone[map[string]any]))
+	_ = a.Start(context.Background())
+
+	next, err := a.Preview("CLOSE")
+	if err != nil {
+		t.Fatalf("Preview: %v", err)
+	}
+	if got := next.Value.Path(); got != "closed" {
+		t.Errorf("previewed value %q, want %q: the guard saw a time.Time", got, "closed")
+	}
+	if _, wrote := a.Snapshot().Context["last"]; wrote {
+		t.Error("the previewed action wrote into the actor's context")
+	}
+	if got := a.Snapshot().Value.Path(); got != "open.draft" {
+		t.Errorf("actor moved to %q", got)
+	}
+}
+
+func TestPreview_WithoutCloneContextLosesGoTypes(t *testing.T) {
+	a := engine.NewActor(cloneMachine(t, nil))
+	_ = a.Start(context.Background())
+	next, err := a.Preview("CLOSE")
+	if err != nil {
+		t.Fatalf("Preview: %v", err)
+	}
+	if got := next.Value.Path(); got != "open.draft" {
+		t.Errorf("previewed value %q: the JSON copy is documented to turn time.Time into a string", got)
+	}
+}
+
+func TestPreview_CloneContextCarriesHistory(t *testing.T) {
+	a := engine.NewActor(cloneMachine(t, maps.Clone[map[string]any]))
+	_ = a.Start(context.Background())
+	_ = a.Send(context.Background(), "EDIT")
+	_ = a.Send(context.Background(), "CLOSE")
+
+	next, err := a.Preview("REOPEN")
+	if err != nil {
+		t.Fatalf("Preview: %v", err)
+	}
+	if got := next.Value.Path(); got != "open.edited" {
+		t.Errorf("previewed value %q, want deep history restored to %q", got, "open.edited")
+	}
+	_ = a.Send(context.Background(), "REOPEN")
+	if got := a.Snapshot().Value.Path(); got != next.Value.Path() {
+		t.Errorf("Send reached %q, Preview said %q", got, next.Value.Path())
+	}
+}
+
+func TestNewActor_CloneContextSeparatesActors(t *testing.T) {
+	m := cloneMachine(t, maps.Clone[map[string]any])
+	a, b := engine.NewActor(m), engine.NewActor(m)
+	_ = a.Start(context.Background())
+	_ = b.Start(context.Background())
+	_ = a.Send(context.Background(), "CLOSE")
+	if _, shared := b.Snapshot().Context["last"]; shared {
+		t.Error("two actors of one machine share a context map")
 	}
 }
