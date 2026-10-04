@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.10.0](https://github.com/arisros/fate/compare/v0.9.0...v0.10.0) (2026-10-04)
+
+
+### Added
+
+* add Machine.Lint and reject an unresolved OnDone target ([#43](https://github.com/arisros/fate/issues/43)) ([8380c9a](https://github.com/arisros/fate/commit/8380c9a80cbc4e13c7ab3099a2819878021ab0da))
+
 ## [0.9.0](https://github.com/arisros/fate/compare/v0.8.0...v0.9.0) (2026-10-04)
 
 
