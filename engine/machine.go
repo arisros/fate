@@ -31,6 +31,13 @@ type MachineConfig[Ctx any, Evt any] struct {
 	// Context is the seed value for the actor's running context.
 	Context Ctx
 
+	// CloneContext, if set, returns a copy of a context that shares no mutable
+	// state with the original. Set it when Ctx holds a map, slice or pointer.
+	// NewActor uses it so actors of one machine do not share the seed, and
+	// Actor.Preview uses it in place of a JSON round trip, which keeps the Go
+	// types of values held in an any (a time.Time stays a time.Time).
+	CloneContext func(Ctx) Ctx
+
 	// States is the map of immediate child state nodes. Keys are local state
 	// names (e.g. "idle"); values describe each node.
 	States map[string]StateNodeConfig[Ctx, Evt]
@@ -160,6 +167,7 @@ type TransitionConfig[Ctx any, Evt any] struct {
 type Machine[Ctx any, Evt any] struct {
 	id      string
 	context Ctx
+	clone   func(Ctx) Ctx
 	root    *stateNode[Ctx, Evt]
 }
 
@@ -203,7 +211,12 @@ func (m *Machine[Ctx, Evt]) ID() string { return m.id }
 
 // initialContext returns a fresh copy of the configured starting context.
 // Used by NewActor.
-func (m *Machine[Ctx, Evt]) initialContext() Ctx { return m.context }
+func (m *Machine[Ctx, Evt]) initialContext() Ctx {
+	if m.clone != nil {
+		return m.clone(m.context)
+	}
+	return m.context
+}
 
 // initialValue returns the StateValue corresponding to the machine's
 // initial state, recursively descending into the initial child of any
@@ -301,7 +314,7 @@ func CreateMachine[Ctx any, Evt any](cfg MachineConfig[Ctx, Evt]) (*Machine[Ctx,
 		return nil, err
 	}
 
-	return &Machine[Ctx, Evt]{id: cfg.ID, context: cfg.Context, root: root}, nil
+	return &Machine[Ctx, Evt]{id: cfg.ID, context: cfg.Context, clone: cfg.CloneContext, root: root}, nil
 }
 
 // buildNode recursively constructs the post-validation node tree.

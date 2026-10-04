@@ -45,4 +45,7 @@ type PendingInvocation struct {
 	Src string
 	// Input is the payload built from context at arm time (nil if no Input fn).
 	Input any
+	// State is the dot path of the state that declares the invocation. A host
+	// that sees that state exited in an engine.Step restarts the work.
+	State string
 }
