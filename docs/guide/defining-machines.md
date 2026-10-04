@@ -49,6 +49,28 @@ func (Submit) EventName() string { return "Submit" }
 
 The keys in an `On` map are these names.
 
+### Asking before sending
+
+`Send` drops an event no state handles. Three calls answer the questions a caller
+has before sending, and none of them changes the actor:
+
+| Call | Answers |
+|---|---|
+| `actor.NextEvents()` | which event names the active states declare, guards not evaluated |
+| `actor.Can(evt)` | whether this event would fire a transition now, guards evaluated |
+| `actor.Preview(evt)` | the snapshot `Send(evt)` would leave behind |
+
+To list only the events that would fire now, build each event from its name and
+ask `Can`:
+
+```go
+for _, name := range actor.NextEvents() {
+    if evt, ok := eventByName(name); ok && actor.Can(evt) {
+        enabled = append(enabled, name)
+    }
+}
+```
+
 ## Transitions
 
 A transition names a `Target` and may carry a `Guard`, a `Cond`, and `Actions`.

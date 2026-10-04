@@ -148,3 +148,44 @@ func Example_tooling() {
 	// {"fields":[{"path":"$.score","op":"gte","value":60}],"sample":{"score":60}}
 	// {"score":72,"passes":true}
 }
+
+// ExampleActor_NextEvents lists the events a task accepts in its current state
+// and previews one of them without sending it.
+func ExampleActor_NextEvents() {
+	type Ctx struct{ Score int }
+	type state = engine.StateNodeConfig[Ctx, string]
+	type transition = engine.TransitionConfig[Ctx, string]
+
+	m, err := engine.CreateMachine(engine.MachineConfig[Ctx, string]{
+		ID:      "review",
+		Initial: "open",
+		Context: Ctx{Score: 40},
+		States: map[string]state{
+			"open": {On: map[string][]transition{
+				"APPROVE": {{Target: "approved", Guard: func(c Ctx, _ string) bool { return c.Score >= 60 }}},
+				"REJECT":  {{Target: "rejected"}},
+			}},
+			"approved": {Type: engine.NodeFinal},
+			"rejected": {Type: engine.NodeFinal},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	a := engine.NewActor(m)
+	_ = a.Start(context.Background())
+
+	for _, name := range a.NextEvents() {
+		fmt.Println(name, a.Can(name))
+	}
+
+	next, _ := a.Preview("REJECT")
+	fmt.Println(next.Value.Path(), next.Status)
+	fmt.Println(a.Snapshot().Value.Path())
+	// Output:
+	// APPROVE false
+	// REJECT true
+	// rejected done
+	// open
+}

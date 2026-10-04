@@ -3,6 +3,9 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/arisros/fate/action"
@@ -217,6 +220,66 @@ func (a *Actor[Ctx, Evt]) Can(evt Evt) bool {
 	}
 	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, internal.EventName(evt))
 	return len(selections) > 0
+}
+
+// NextEvents returns the names of the events the active configuration declares
+// a transition for, sorted. It reads every active state and its ancestors, the
+// same handlers Send would consult, and leaves out the "*" wildcard.
+//
+// Guards are not evaluated, because a guard needs an event value and a name is
+// not one. To list only the events that would fire now, build each event and
+// ask [Actor.Can]:
+//
+//	for _, name := range actor.NextEvents() {
+//	    if evt, ok := eventByName(name); ok && actor.Can(evt) {
+//	        enabled = append(enabled, name)
+//	    }
+//	}
+//
+// An actor that is not running reports none.
+func (a *Actor[Ctx, Evt]) NextEvents() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.status != persist.StatusRunning {
+		return nil
+	}
+	names := map[string]struct{}{}
+	for _, leaf := range resolveLeaves[Ctx, Evt](a.machine.root, a.value) {
+		for cursor := leaf; cursor != nil && cursor.name != ""; cursor = cursor.parent {
+			for name := range cursor.on {
+				if name != "*" {
+					names[name] = struct{}{}
+				}
+			}
+		}
+	}
+	return slices.Sorted(maps.Keys(names))
+}
+
+// Preview returns the snapshot [Actor.Send] would leave behind for evt, without
+// changing the actor. Compare its Value with the current snapshot's to see
+// where the event leads, or pass both to diff.Snapshots.
+//
+// The event runs on a copy restored from [Actor.Persist], so the copy shares no
+// context, history or queue with the actor, and Preview fails where Persist
+// does. An event no transition handles yields the current snapshot unchanged;
+// [Actor.Can] tells that apart from a transition that keeps the same state.
+// Preview returns the error Send would: ErrActorStopped for an actor that is
+// not running.
+func (a *Actor[Ctx, Evt]) Preview(evt Evt) (persist.Snapshot[Ctx], error) {
+	var zero persist.Snapshot[Ctx]
+	blob, err := a.Persist()
+	if err != nil {
+		return zero, fmt.Errorf("statechart: preview: %w", err)
+	}
+	trial, err := NewActorFromSnapshot[Ctx, Evt](a.machine, blob)
+	if err != nil {
+		return zero, fmt.Errorf("statechart: preview: %w", err)
+	}
+	if err := trial.Send(context.Background(), evt); err != nil {
+		return zero, err
+	}
+	return trial.Snapshot(), nil
 }
 
 // Snapshot returns the actor's current state. Safe to call concurrently.
