@@ -26,6 +26,9 @@ type Invocation[Ctx any, Evt any] struct {
 	Src string
 	// Input, if non-nil, builds the invocation input from the context captured
 	// when the state is entered. Exposed to the adapter via PendingInvocation.
+	//
+	// Input, OnDone and OnError run while the actor is locked: they must not
+	// call the actor and must not block.
 	Input func(ctx Ctx) any
 	// OnDone, if non-nil, maps a successful result to an event the machine then
 	// processes. If nil, a successful resolution is dropped.

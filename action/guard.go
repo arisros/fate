@@ -5,6 +5,10 @@ import "github.com/arisros/fate/persist"
 // Guard is a pure predicate over context and event. Returning true selects
 // the transition; returning false skips it. Guards must be pure (no I/O,
 // no time, no randomness) — see ADR-002.
+//
+// A guard runs while the actor is locked: it must not call the actor it
+// belongs to, which would never return, and must not block or wait on
+// anything. Decide from ctx and evt alone.
 type Guard[Ctx any, Evt any] func(ctx Ctx, evt Evt) bool
 
 // AlwaysTrue is the implicit guard for transitions that declare no Guard.
