@@ -7,6 +7,10 @@ import "github.com/arisros/fate/internal"
 // I/O is forbidden (see ADR-002). All actions are pure with respect to
 // time and randomness.
 //
+// An action runs while the actor is locked: it must not call the actor it
+// belongs to, which would never return, and must not block or wait on
+// anything. To send the actor another event, use Raise.
+//
 // Action is an interface because we want polymorphic concrete types
 // (assignAction, raiseAction, etc.) while keeping the API ergonomic. The
 // constructors in this package cover the built-in kinds; the engine is the

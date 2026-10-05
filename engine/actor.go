@@ -75,6 +75,18 @@ type Actor[Ctx any, Evt any] struct {
 	step            *Step
 	steps           []Step
 	stepSubscribers []func(Step)
+
+	// outbox holds steps and snapshots waiting for the observers, in order.
+	// delivering is true while a call is handing them out, which it does with
+	// the mutex released.
+	outbox     []notice[Ctx]
+	delivering bool
+}
+
+// notice is one thing the observers are owed: a step or a snapshot.
+type notice[Ctx any] struct {
+	step *Step
+	snap *persist.Snapshot[Ctx]
 }
 
 // afterBinding records which state and delay bucket an armed timer belongs to,
@@ -115,7 +127,8 @@ func WithInitialValue[Ctx any, Evt any](v persist.StateValue) ActorOption {
 }
 
 // WithLogger sets the function called by Log actions and internal warnings.
-// Default: a no-op (logs are discarded).
+// Default: a no-op (logs are discarded). The function runs while the actor is
+// locked: it must not call the actor and must not block.
 func WithLogger(fn func(string)) ActorOption {
 	return func(o *actorOpts) { o.logger = fn }
 }
@@ -150,6 +163,7 @@ func NewActor[Ctx any, Evt any](m *Machine[Ctx, Evt], opts ...ActorOption) *Acto
 // If the initial configuration already lands in a top-level final state,
 // the actor immediately transitions to StatusDone.
 func (a *Actor[Ctx, Evt]) Start(_ context.Context) error {
+	defer a.deliver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.status == persist.StatusRunning {
@@ -183,6 +197,7 @@ func (a *Actor[Ctx, Evt]) Start(_ context.Context) error {
 // state, its status transitions to StatusDone. Subsequent Sends are
 // silently dropped (matching XState v5 semantics).
 func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
+	defer a.deliver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.status == persist.StatusStopped {
@@ -342,7 +357,10 @@ func cloneValue(v persist.StateValue) persist.StateValue {
 	return out
 }
 
-// Snapshot returns the actor's current state. Safe to call concurrently.
+// Snapshot returns the actor's current state. It is safe to call from several
+// goroutines and from an observer. It is not safe to call from a guard, an
+// action or any other function the actor runs during a step: those run while
+// the actor is locked, and the call would never return.
 func (a *Actor[Ctx, Evt]) Snapshot() persist.Snapshot[Ctx] {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -352,6 +370,17 @@ func (a *Actor[Ctx, Evt]) Snapshot() persist.Snapshot[Ctx] {
 // Subscribe registers an observer that is called with a snapshot after
 // every Send (and once on Start, after entry actions). Returns an
 // unsubscribe func.
+//
+// Observers are called on the goroutine that called the actor, after the step
+// has finished and the actor is unlocked, and before that call returns. An
+// observer may therefore call the actor, including Send and its own
+// unsubscribe func. What a call made from an observer produces is delivered
+// after the current observer returns, so observers never run inside one
+// another and always see steps in Seq order.
+//
+// When several goroutines drive one actor, the one already delivering also
+// delivers what the others produce, so a call can return before its own
+// observers have run.
 func (a *Actor[Ctx, Evt]) Subscribe(obs func(persist.Snapshot[Ctx])) func() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -701,13 +730,63 @@ func (a *Actor[Ctx, Evt]) captureOutputLocked(finalLeaf *stateNode[Ctx, Evt]) {
 	a.output = raw
 }
 
+// notifyLocked queues the finished steps and the resulting snapshot for the
+// observers. The public method that took the lock hands them out through
+// deliver once it has released it.
 func (a *Actor[Ctx, Evt]) notifyLocked() {
-	a.deliverStepsLocked()
+	steps := a.steps
+	a.steps = nil
+	if len(a.subscribers) == 0 && len(a.stepSubscribers) == 0 {
+		return
+	}
+	for i := range steps {
+		a.outbox = append(a.outbox, notice[Ctx]{step: &steps[i]})
+	}
 	snap := a.snapshotLocked()
-	for _, obs := range a.subscribers {
-		if obs != nil {
-			obs(snap)
+	a.outbox = append(a.outbox, notice[Ctx]{snap: &snap})
+}
+
+// deliver hands queued steps and snapshots to the observers with the mutex
+// released, so an observer may call the actor. Only one call delivers at a
+// time: a call that finds a delivery in progress, its own or another
+// goroutine's, leaves its notices in the queue for that delivery to drain.
+func (a *Actor[Ctx, Evt]) deliver() {
+	a.mu.Lock()
+	if a.delivering || len(a.outbox) == 0 {
+		a.mu.Unlock()
+		return
+	}
+	a.delivering = true
+	locked := true
+	defer func() {
+		if !locked {
+			a.mu.Lock()
 		}
+		a.delivering = false
+		a.mu.Unlock()
+	}()
+	for len(a.outbox) > 0 {
+		n := a.outbox[0]
+		a.outbox = a.outbox[1:]
+		stepObs := slices.Clone(a.stepSubscribers)
+		snapObs := slices.Clone(a.subscribers)
+		a.mu.Unlock()
+		locked = false
+		if n.step != nil {
+			for _, obs := range stepObs {
+				if obs != nil {
+					obs(*n.step)
+				}
+			}
+		} else {
+			for _, obs := range snapObs {
+				if obs != nil {
+					obs(*n.snap)
+				}
+			}
+		}
+		a.mu.Lock()
+		locked = true
 	}
 }
 
