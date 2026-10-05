@@ -52,6 +52,7 @@ func (a *Actor[Ctx, Evt]) PendingTimers() []effect.PendingTimer {
 // callback for a state the machine has already left; callers that do not care
 // may discard it.
 func (a *Actor[Ctx, Evt]) FireTimer(id effect.TimerID) bool {
+	defer a.deliver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	fired := a.fireTimerLocked(id)

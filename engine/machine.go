@@ -35,7 +35,9 @@ type MachineConfig[Ctx any, Evt any] struct {
 	// state with the original. Set it when Ctx holds a map, slice or pointer.
 	// NewActor uses it so actors of one machine do not share the seed, and
 	// Actor.Preview uses it in place of a JSON round trip, which keeps the Go
-	// types of values held in an any (a time.Time stays a time.Time).
+	// types of values held in an any (a time.Time stays a time.Time). Preview
+	// calls it while the actor is locked: it must not call the actor and must
+	// not block.
 	CloneContext func(Ctx) Ctx
 
 	// States is the map of immediate child state nodes. Keys are local state
@@ -102,7 +104,8 @@ type StateNodeConfig[Ctx any, Evt any] struct {
 	// Output, set only on a NodeFinal state, builds the machine's output value
 	// from the final context when a top-level final state is reached. The
 	// result is JSON-marshaled into the snapshot's Output field. Mirrors
-	// XState's final-state output.
+	// XState's final-state output. It runs while the actor is locked: it must
+	// not call the actor and must not block.
 	Output func(ctx Ctx) any
 
 	// Meta is data for tooling and hosts: a form name, a task type, a display
