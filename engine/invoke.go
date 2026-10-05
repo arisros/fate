@@ -75,6 +75,7 @@ func (a *Actor[Ctx, Evt]) PendingInvocations() []effect.PendingInvocation {
 // this to tell a delivered result from a late one; callers that do not care may
 // discard it.
 func (a *Actor[Ctx, Evt]) ResolveInvocation(id effect.InvokeID, output any) bool {
+	defer a.deliver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	b, ok := a.settleInvokeLocked(id)
@@ -98,6 +99,7 @@ func (a *Actor[Ctx, Evt]) ResolveInvocation(id effect.InvokeID, output any) bool
 // invocation with no OnError mapper reports true and delivers no event, which
 // is how a failure with no declared handler is silently absorbed.
 func (a *Actor[Ctx, Evt]) RejectInvocation(id effect.InvokeID, err error) bool {
+	defer a.deliver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	b, ok := a.settleInvokeLocked(id)

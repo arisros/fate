@@ -62,8 +62,11 @@ type Step struct {
 // before the snapshot observers of [Actor.Subscribe] run. An event that fires
 // no transition produces no step. Returns an unsubscribe func.
 //
-// The observer runs while the actor is locked, so it must not call the actor;
-// Step.Value carries the configuration it would otherwise read.
+// Delivery follows the rules of [Actor.Subscribe]: on the calling goroutine,
+// after the actor is unlocked and before the call returns, so every step of a
+// Send has been delivered when Send returns. An observer may call the actor.
+// One that calls Send has the steps of that nested Send delivered after it
+// returns, and the outer Send returns only once those are delivered too.
 func (a *Actor[Ctx, Evt]) SubscribeSteps(obs func(Step)) func() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -110,18 +113,6 @@ func (a *Actor[Ctx, Evt]) recordTransitionLocked(source, target *stateNode[Ctx, 
 	}
 	for _, n := range entry {
 		a.step.Entered = append(a.step.Entered, dotPath(n))
-	}
-}
-
-func (a *Actor[Ctx, Evt]) deliverStepsLocked() {
-	steps := a.steps
-	a.steps = nil
-	for _, s := range steps {
-		for _, obs := range a.stepSubscribers {
-			if obs != nil {
-				obs(s)
-			}
-		}
 	}
 }
 
