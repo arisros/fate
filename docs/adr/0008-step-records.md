@@ -45,8 +45,10 @@ type Step struct {
 - `Exited` and `Entered` are in execution order, not sorted, so a host that
   issues commands from them issues the same commands on every run. A state that
   is left and entered again appears in both.
-- `Value` is the configuration after the step. Observers run while the actor is
-  locked and must not call it; the value is what they would have read.
+- `Value` is the configuration after the step, so an observer does not need to
+  read it back. Observers are called on the calling goroutine after the actor is
+  unlocked and before the call returns, so they may call the actor; what such a
+  call produces is delivered after the current observer returns.
 - A step in which no transition fired is not recorded. Dropped events stay the
   subject of ADR-0006.
 - `Seq` counts from 1 and is stored in the persisted snapshot as `seq`, so it

@@ -53,6 +53,7 @@ func (a *Actor[Ctx, Evt]) PendingInvocations() []effect.PendingInvocation {
 
 // ResolveInvocation reports successful completion of the invocation with the given id.
 func (a *Actor[Ctx, Evt]) ResolveInvocation(id effect.InvokeID, output any) bool {
+	defer a.deliver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	b, ok := a.settleInvokeLocked(id)
@@ -68,6 +69,7 @@ func (a *Actor[Ctx, Evt]) ResolveInvocation(id effect.InvokeID, output any) bool
 
 // RejectInvocation reports failure of the invocation with the given id.
 func (a *Actor[Ctx, Evt]) RejectInvocation(id effect.InvokeID, err error) bool {
+	defer a.deliver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	b, ok := a.settleInvokeLocked(id)

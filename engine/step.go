@@ -45,7 +45,6 @@ type Step struct {
 }
 
 // SubscribeSteps registers an observer that receives every Step, in order, before the snapshot observers of [Actor.Subscribe] run.
-// Runs locked: must not call the actor or block.
 func (a *Actor[Ctx, Evt]) SubscribeSteps(obs func(Step)) func() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -90,18 +89,6 @@ func (a *Actor[Ctx, Evt]) recordTransitionLocked(source, target *stateNode[Ctx, 
 	}
 	for _, n := range entry {
 		a.step.Entered = append(a.step.Entered, dotPath(n))
-	}
-}
-
-func (a *Actor[Ctx, Evt]) deliverStepsLocked() {
-	steps := a.steps
-	a.steps = nil
-	for _, s := range steps {
-		for _, obs := range a.stepSubscribers {
-			if obs != nil {
-				obs(s)
-			}
-		}
 	}
 }
 
