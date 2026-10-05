@@ -3,6 +3,7 @@ package action
 import "github.com/arisros/fate/persist"
 
 // Guard is a pure predicate over context and event.
+// Runs locked: must not call the actor or block.
 type Guard[Ctx any, Evt any] func(ctx Ctx, evt Evt) bool
 
 // AlwaysTrue is the implicit guard for transitions that declare no Guard.

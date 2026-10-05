@@ -33,6 +33,7 @@ func (a *Actor[Ctx, Evt]) PendingTimers() []effect.PendingTimer {
 
 // FireTimer fires the armed delayed transition with the given id.
 func (a *Actor[Ctx, Evt]) FireTimer(id effect.TimerID) bool {
+	defer a.deliver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	fired := a.fireTimerLocked(id)

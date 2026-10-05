@@ -3,6 +3,7 @@ package action
 import "github.com/arisros/fate/internal"
 
 // Action is something executed as part of a transition or on state entry / exit.
+// Runs locked: must not call the actor or block.
 type Action[Ctx any, Evt any] interface {
 	Apply(ctx Ctx, evt Evt, sink Sink[Evt]) Ctx
 }

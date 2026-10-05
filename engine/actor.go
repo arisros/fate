@@ -46,6 +46,14 @@ type Actor[Ctx any, Evt any] struct {
 	step            *Step
 	steps           []Step
 	stepSubscribers []func(Step)
+
+	outbox     []notice[Ctx]
+	delivering bool
+}
+
+type notice[Ctx any] struct {
+	step *Step
+	snap *persist.Snapshot[Ctx]
 }
 
 type afterBinding[Ctx any, Evt any] struct {
@@ -78,6 +86,7 @@ func WithInitialValue[Ctx any, Evt any](v persist.StateValue) ActorOption {
 }
 
 // WithLogger sets the function called by Log actions and internal warnings.
+// Runs locked: must not call the actor or block.
 func WithLogger(fn func(string)) ActorOption {
 	return func(o *actorOpts) { o.logger = fn }
 }
@@ -108,6 +117,7 @@ func NewActor[Ctx any, Evt any](m *Machine[Ctx, Evt], opts ...ActorOption) *Acto
 
 // Start moves the actor into Running and executes entry actions for the initial configuration chain (deepest entry's Entry runs last).
 func (a *Actor[Ctx, Evt]) Start(_ context.Context) error {
+	defer a.deliver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.status == persist.StatusRunning {
@@ -132,6 +142,7 @@ func (a *Actor[Ctx, Evt]) Start(_ context.Context) error {
 
 // Send dispatches an event to the actor synchronously.
 func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
+	defer a.deliver()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.status == persist.StatusStopped {
@@ -246,6 +257,7 @@ func cloneValue(v persist.StateValue) persist.StateValue {
 }
 
 // Snapshot returns the actor's current state.
+// Runs locked: must not call the actor or block.
 func (a *Actor[Ctx, Evt]) Snapshot() persist.Snapshot[Ctx] {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -520,12 +532,55 @@ func (a *Actor[Ctx, Evt]) captureOutputLocked(finalLeaf *stateNode[Ctx, Evt]) {
 }
 
 func (a *Actor[Ctx, Evt]) notifyLocked() {
-	a.deliverStepsLocked()
+	steps := a.steps
+	a.steps = nil
+	if len(a.subscribers) == 0 && len(a.stepSubscribers) == 0 {
+		return
+	}
+	for i := range steps {
+		a.outbox = append(a.outbox, notice[Ctx]{step: &steps[i]})
+	}
 	snap := a.snapshotLocked()
-	for _, obs := range a.subscribers {
-		if obs != nil {
-			obs(snap)
+	a.outbox = append(a.outbox, notice[Ctx]{snap: &snap})
+}
+
+func (a *Actor[Ctx, Evt]) deliver() {
+	a.mu.Lock()
+	if a.delivering || len(a.outbox) == 0 {
+		a.mu.Unlock()
+		return
+	}
+	a.delivering = true
+	locked := true
+	defer func() {
+		if !locked {
+			a.mu.Lock()
 		}
+		a.delivering = false
+		a.mu.Unlock()
+	}()
+	for len(a.outbox) > 0 {
+		n := a.outbox[0]
+		a.outbox = a.outbox[1:]
+		stepObs := slices.Clone(a.stepSubscribers)
+		snapObs := slices.Clone(a.subscribers)
+		a.mu.Unlock()
+		locked = false
+		if n.step != nil {
+			for _, obs := range stepObs {
+				if obs != nil {
+					obs(*n.step)
+				}
+			}
+		} else {
+			for _, obs := range snapObs {
+				if obs != nil {
+					obs(*n.snap)
+				}
+			}
+		}
+		a.mu.Lock()
+		locked = true
 	}
 }
 

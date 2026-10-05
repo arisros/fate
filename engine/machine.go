@@ -23,6 +23,7 @@ type MachineConfig[Ctx any, Evt any] struct {
 
 	Context Ctx
 
+	// Runs locked: must not call the actor or block.
 	CloneContext func(Ctx) Ctx
 
 	States map[string]StateNodeConfig[Ctx, Evt]
@@ -52,6 +53,7 @@ type StateNodeConfig[Ctx any, Evt any] struct {
 
 	Default string
 
+	// Runs locked: must not call the actor or block.
 	Output func(ctx Ctx) any
 
 	Meta map[string]any
