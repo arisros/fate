@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.10.1](https://github.com/arisros/fate/compare/v0.10.0...v0.10.1) (2026-10-05)
+
+
+### Fixed
+
+* call observers after the actor is unlocked ([#48](https://github.com/arisros/fate/issues/48)) ([2c7c06d](https://github.com/arisros/fate/commit/2c7c06df07fdaf1a709e51300b6ab0fb1bd20721))
+
 ## [0.10.0](https://github.com/arisros/fate/compare/v0.9.0...v0.10.0) (2026-10-04)
 
 
