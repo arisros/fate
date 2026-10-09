@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.11.0](https://github.com/arisros/fate/compare/v0.10.1...v0.11.0) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* Send returns ErrUnnamedEvent, and Can reports false, for an event with no name: a non-string, non-struct kind with no EventName method and no MachineConfig.EventName, a nil event, an anonymous struct, or an empty name. Such events previously dispatched on their type name or fell through to a "*" handler. Set MachineConfig.EventName or add an EventName method.
+
+### Fixed
+
+* resolve event names for named string and enum types ([#50](https://github.com/arisros/fate/issues/50)) ([c21b737](https://github.com/arisros/fate/commit/c21b73736bc7075bc2a3d2e2a96bb231315f71eb))
+
 ## [0.10.1](https://github.com/arisros/fate/compare/v0.10.0...v0.10.1) (2026-10-05)
 
 
