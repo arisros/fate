@@ -74,11 +74,15 @@ func (a raiseAction[Ctx, Evt]) Apply(c Ctx, _ Evt, sink Sink[Evt]) Ctx {
 	return c
 }
 
+// RaisedEvent reports the event this action raises, which lets the engine
+// label it by the machine's own naming rules.
+func (a raiseAction[Ctx, Evt]) RaisedEvent() Evt { return a.evt }
+
 // ImplName reports the label this action carries in a describe.MachineDescriptor. The
 // raised event is known statically, so the label names it: "raise:CANCEL". An
 // event whose name cannot be resolved degrades to a bare "raise".
 func (a raiseAction[Ctx, Evt]) ImplName() string {
-	if name := internal.EventName(a.evt); name != "" {
+	if name, ok := internal.EventName(a.evt); ok {
 		return "raise:" + name
 	}
 	return "raise"

@@ -15,7 +15,7 @@ type bareAction[Ctx any, Evt any] struct{}
 func (bareAction[Ctx, Evt]) Apply(c Ctx, _ Evt, _ action.Sink[Evt]) Ctx { return c }
 
 func TestActionNameFallsBackForAnActionWithoutImplName(t *testing.T) {
-	if got := actionName[int, string](bareAction[int, string]{}); got != "" {
+	if got := (&Machine[int, string]{}).actionName(bareAction[int, string]{}); got != "" {
 		t.Errorf("actionName = %q, want \"\"", got)
 	}
 }

@@ -196,6 +196,19 @@ func (a *Actor[Ctx, Evt]) Start(_ context.Context) error {
 // If processing the event causes the actor to reach a top-level final
 // state, its status transitions to StatusDone. Subsequent Sends are
 // silently dropped (matching XState v5 semantics).
+//
+// The event is matched to the On keys by name. MachineConfig.EventName names
+// it when set. Otherwise the first rule that applies does:
+//
+//  1. a plain string is its own name;
+//  2. a type with an EventName() string method is named by it;
+//  3. a value of a named string type (type Kind string) is its own value;
+//  4. a named struct, or a pointer to one, is named after its type, less a
+//     trailing "T" or "Event".
+//
+// Send returns ErrUnnamedEvent, changing nothing, for an event none of these
+// name: an int enum, a nil event, an empty name. A raised or invocation event
+// with no name is dropped and reported to the logger.
 func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
 	defer a.deliver()
 	a.mu.Lock()
@@ -209,7 +222,9 @@ func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
 	if a.status != persist.StatusRunning {
 		return ErrActorNotStarted
 	}
-	a.handleEventLocked(evt, StepEvent, "")
+	if err := a.handleEventLocked(evt, StepEvent, ""); err != nil {
+		return err
+	}
 	a.drainQueueLocked()
 	a.settleFinalLocked(evt)
 	a.notifyLocked()
@@ -233,7 +248,8 @@ func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
 // Because guards are pure by contract, the answer is exact rather than an
 // approximation, and asking costs nothing beyond the guard evaluations. Two
 // boundaries are worth knowing. An actor that is not running reports false for
-// every event, since a stopped or completed actor handles none. And Can
+// every event, since a stopped or completed actor handles none, and so does an
+// event Send would reject with ErrUnnamedEvent. And Can
 // answers about transition *selection*: a selected transition whose target
 // cannot be resolved reports true here while changing no state, which is the
 // same configuration error Send absorbs.
@@ -243,8 +259,11 @@ func (a *Actor[Ctx, Evt]) Can(evt Evt) bool {
 	if a.status != persist.StatusRunning {
 		return false
 	}
-	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, internal.EventName(evt))
-	return len(selections) > 0
+	name, err := a.machine.eventName(evt)
+	if err != nil {
+		return false
+	}
+	return len(selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, name)) > 0
 }
 
 // NextEvents returns the names of the events the active configuration declares
@@ -304,7 +323,7 @@ func (a *Actor[Ctx, Evt]) Enabled(byName func(name string) (Evt, bool)) []string
 // An event no transition handles yields the current snapshot unchanged;
 // [Actor.Can] tells that apart from a transition that keeps the same state.
 // Preview returns the error Send would: ErrActorStopped for an actor that is
-// not running.
+// not running, ErrUnnamedEvent for an event with no name.
 func (a *Actor[Ctx, Evt]) Preview(evt Evt) (persist.Snapshot[Ctx], error) {
 	var zero persist.Snapshot[Ctx]
 	trial, err := a.copyForPreview()
@@ -410,8 +429,14 @@ func (a *Actor[Ctx, Evt]) Stop() {
 // runs actions in the SCXML-defined order. Each selected transition is
 // applied in the order returned by selectTransitions (deterministic across
 // runs, since leaves are visited in alphabetical path order).
-func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt, cause StepCause, effectID string) {
-	eventName := internal.EventName(evt)
+//
+// An event with no name is an error and changes nothing, not even the step
+// sequence.
+func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt, cause StepCause, effectID string) error {
+	eventName, err := a.machine.eventName(evt)
+	if err != nil {
+		return err
+	}
 	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, eventName)
 	a.beginStepLocked(cause, eventName, effectID)
 	defer a.endStepLocked()
@@ -432,6 +457,7 @@ func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt, cause StepCause, effectID s
 		}
 		a.runTransitionLocked(sel.Source, target, t, evt)
 	}
+	return nil
 }
 
 // runTransitionLocked is the SCXML transition apply step factored out so
@@ -682,7 +708,9 @@ func (a *Actor[Ctx, Evt]) drainQueueLocked() {
 		if !ok {
 			return
 		}
-		a.handleEventLocked(evt, StepRaise, "")
+		if err := a.handleEventLocked(evt, StepRaise, ""); err != nil && a.logger != nil {
+			a.logger("statechart: raised event dropped: " + err.Error())
+		}
 	}
 	if a.logger != nil {
 		a.logger("statechart: queue drain cap reached; events dropped")

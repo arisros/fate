@@ -3,6 +3,7 @@ package engine_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -275,4 +276,41 @@ func ExampleMachine_Lint() {
 	// Output:
 	// returned unreachable
 	// review dead_end
+}
+
+// A machine whose events are an int enum names them with
+// MachineConfig.EventName, since the default rules cannot.
+func ExampleMachineConfig_eventName() {
+	type Step int
+	const (
+		Submit Step = iota + 1
+		Back
+	)
+	names := map[Step]string{Submit: "SUBMIT", Back: "BACK"}
+
+	m, err := engine.CreateMachine(engine.MachineConfig[struct{}, Step]{
+		ID:        "form",
+		Initial:   "editing",
+		EventName: func(s Step) string { return names[s] },
+		States: map[string]engine.StateNodeConfig[struct{}, Step]{
+			"editing": {On: map[string][]engine.TransitionConfig[struct{}, Step]{
+				"SUBMIT": {{Target: "review"}},
+			}},
+			"review": {On: map[string][]engine.TransitionConfig[struct{}, Step]{
+				"BACK": {{Target: "editing"}},
+			}},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	a := engine.NewActor(m)
+	_ = a.Start(context.Background())
+
+	_ = a.Send(context.Background(), Submit)
+	fmt.Println(a.Snapshot().Value.Path())
+	fmt.Println(errors.Is(a.Send(context.Background(), Step(99)), engine.ErrUnnamedEvent))
+	// Output:
+	// review
+	// true
 }
