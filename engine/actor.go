@@ -154,7 +154,9 @@ func (a *Actor[Ctx, Evt]) Send(_ context.Context, evt Evt) error {
 	if a.status != persist.StatusRunning {
 		return ErrActorNotStarted
 	}
-	a.handleEventLocked(evt, StepEvent, "")
+	if err := a.handleEventLocked(evt, StepEvent, ""); err != nil {
+		return err
+	}
 	a.drainQueueLocked()
 	a.settleFinalLocked(evt)
 	a.notifyLocked()
@@ -168,8 +170,11 @@ func (a *Actor[Ctx, Evt]) Can(evt Evt) bool {
 	if a.status != persist.StatusRunning {
 		return false
 	}
-	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, internal.EventName(evt))
-	return len(selections) > 0
+	name, err := a.machine.eventName(evt)
+	if err != nil {
+		return false
+	}
+	return len(selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, name)) > 0
 }
 
 // NextEvents returns the names of the events the active configuration declares a transition for, sorted.
@@ -288,8 +293,11 @@ func (a *Actor[Ctx, Evt]) Stop() {
 	a.pendingInvokes = map[effect.InvokeID]invokeBinding[Ctx, Evt]{}
 }
 
-func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt, cause StepCause, effectID string) {
-	eventName := internal.EventName(evt)
+func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt, cause StepCause, effectID string) error {
+	eventName, err := a.machine.eventName(evt)
+	if err != nil {
+		return err
+	}
 	selections := selectTransitions[Ctx, Evt](a.machine.root, a.value, a.ctx, evt, eventName)
 	a.beginStepLocked(cause, eventName, effectID)
 	defer a.endStepLocked()
@@ -310,6 +318,7 @@ func (a *Actor[Ctx, Evt]) handleEventLocked(evt Evt, cause StepCause, effectID s
 		}
 		a.runTransitionLocked(sel.Source, target, t, evt)
 	}
+	return nil
 }
 
 func (a *Actor[Ctx, Evt]) runTransitionLocked(
@@ -488,7 +497,9 @@ func (a *Actor[Ctx, Evt]) drainQueueLocked() {
 		if !ok {
 			return
 		}
-		a.handleEventLocked(evt, StepRaise, "")
+		if err := a.handleEventLocked(evt, StepRaise, ""); err != nil && a.logger != nil {
+			a.logger("statechart: raised event dropped: " + err.Error())
+		}
 	}
 	if a.logger != nil {
 		a.logger("statechart: queue drain cap reached; events dropped")

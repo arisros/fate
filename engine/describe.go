@@ -22,12 +22,12 @@ func (m *Machine[Ctx, Evt]) Describe() describe.MachineDescriptor {
 		}
 	}
 	for name, child := range m.root.children {
-		d.States[name] = describeNode(child)
+		d.States[name] = m.describeNode(child)
 	}
 	return d
 }
 
-func describeNode[Ctx any, Evt any](n *stateNode[Ctx, Evt]) describe.StateNodeDescriptor {
+func (m *Machine[Ctx, Evt]) describeNode(n *stateNode[Ctx, Evt]) describe.StateNodeDescriptor {
 	sd := describe.StateNodeDescriptor{
 		Type:    n.typ.String(),
 		Initial: n.initial,
@@ -41,10 +41,10 @@ func describeNode[Ctx any, Evt any](n *stateNode[Ctx, Evt]) describe.StateNodeDe
 			sd.History = "shallow"
 		}
 	}
-	if names := describeActions(n.entryActions); len(names) > 0 {
+	if names := m.describeActions(n.entryActions); len(names) > 0 {
 		sd.Entry = names
 	}
-	if names := describeActions(n.exitActions); len(names) > 0 {
+	if names := m.describeActions(n.exitActions); len(names) > 0 {
 		sd.Exit = names
 	}
 	if len(n.on) > 0 {
@@ -55,11 +55,11 @@ func describeNode[Ctx any, Evt any](n *stateNode[Ctx, Evt]) describe.StateNodeDe
 		}
 		sort.Strings(eventKeys)
 		for _, ev := range eventKeys {
-			sd.On[ev] = describeTransitions(n.on[ev])
+			sd.On[ev] = m.describeTransitions(n.on[ev])
 		}
 	}
 	if len(n.onDone) > 0 {
-		sd.OnDone = describeTransitions(n.onDone)
+		sd.OnDone = m.describeTransitions(n.onDone)
 	}
 	if n.uiState != nil {
 		sd.UIStateSchema = n.uiState.Schema()
@@ -68,13 +68,13 @@ func describeNode[Ctx any, Evt any](n *stateNode[Ctx, Evt]) describe.StateNodeDe
 	if len(n.children) > 0 {
 		sd.States = map[string]describe.StateNodeDescriptor{}
 		for name, child := range n.children {
-			sd.States[name] = describeNode(child)
+			sd.States[name] = m.describeNode(child)
 		}
 	}
 	return sd
 }
 
-func describeTransitions[Ctx any, Evt any](ts []TransitionConfig[Ctx, Evt]) []describe.TransitionDescriptor {
+func (m *Machine[Ctx, Evt]) describeTransitions(ts []TransitionConfig[Ctx, Evt]) []describe.TransitionDescriptor {
 	out := make([]describe.TransitionDescriptor, 0, len(ts))
 	for _, t := range ts {
 		td := describe.TransitionDescriptor{
@@ -84,7 +84,7 @@ func describeTransitions[Ctx any, Evt any](ts []TransitionConfig[Ctx, Evt]) []de
 			Meta:     slices.Clone(t.meta),
 		}
 		td.Guard = t.GuardName
-		if names := describeActions(t.Actions); len(names) > 0 {
+		if names := m.describeActions(t.Actions); len(names) > 0 {
 			td.Actions = names
 		}
 		out = append(out, td)
@@ -92,20 +92,26 @@ func describeTransitions[Ctx any, Evt any](ts []TransitionConfig[Ctx, Evt]) []de
 	return out
 }
 
-func describeActions[Ctx any, Evt any](actions []action.Action[Ctx, Evt]) []string {
+func (m *Machine[Ctx, Evt]) describeActions(actions []action.Action[Ctx, Evt]) []string {
 	if len(actions) == 0 {
 		return nil
 	}
 	names := make([]string, 0, len(actions))
 	for _, a := range actions {
-		names = append(names, actionName(a))
+		names = append(names, m.actionName(a))
 	}
 	return names
 }
 
-func actionName[Ctx any, Evt any](a action.Action[Ctx, Evt]) string {
+func (m *Machine[Ctx, Evt]) actionName(a action.Action[Ctx, Evt]) string {
 	if a == nil {
 		return ""
+	}
+	if r, ok := any(a).(interface{ RaisedEvent() Evt }); ok {
+		if name, err := m.eventName(r.RaisedEvent()); err == nil {
+			return "raise:" + name
+		}
+		return "raise"
 	}
 	type named interface{ ImplName() string }
 	if n, ok := any(a).(named); ok {

@@ -12,6 +12,7 @@ import (
 	"github.com/arisros/fate/action"
 	"github.com/arisros/fate/describe"
 	"github.com/arisros/fate/effect"
+	"github.com/arisros/fate/internal"
 	"github.com/arisros/fate/persist"
 )
 
@@ -25,6 +26,8 @@ type MachineConfig[Ctx any, Evt any] struct {
 
 	// Runs locked: must not call the actor or block.
 	CloneContext func(Ctx) Ctx
+
+	EventName func(Evt) string
 
 	States map[string]StateNodeConfig[Ctx, Evt]
 }
@@ -87,6 +90,7 @@ type Machine[Ctx any, Evt any] struct {
 	id      string
 	context Ctx
 	clone   func(Ctx) Ctx
+	namer   func(Evt) string
 	root    *stateNode[Ctx, Evt]
 }
 
@@ -197,7 +201,26 @@ func CreateMachine[Ctx any, Evt any](cfg MachineConfig[Ctx, Evt]) (*Machine[Ctx,
 		return nil, err
 	}
 
-	return &Machine[Ctx, Evt]{id: cfg.ID, context: cfg.Context, clone: cfg.CloneContext, root: root}, nil
+	return &Machine[Ctx, Evt]{
+		id:      cfg.ID,
+		context: cfg.Context,
+		clone:   cfg.CloneContext,
+		namer:   cfg.EventName,
+		root:    root,
+	}, nil
+}
+
+func (m *Machine[Ctx, Evt]) eventName(evt Evt) (string, error) {
+	if m.namer != nil {
+		if name := m.namer(evt); name != "" {
+			return name, nil
+		}
+		return "", fmt.Errorf("%w: MachineConfig.EventName returned \"\" for %T", ErrUnnamedEvent, evt)
+	}
+	if name, ok := internal.EventName(evt); ok {
+		return name, nil
+	}
+	return "", fmt.Errorf("%w: %T needs an EventName method or MachineConfig.EventName", ErrUnnamedEvent, evt)
 }
 
 func buildNode[Ctx any, Evt any](
