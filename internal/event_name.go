@@ -2,26 +2,34 @@ package internal
 
 import "reflect"
 
-// EventName extracts a string tag for an event.
-func EventName(evt any) string {
+// EventName extracts the name an event dispatches on.
+func EventName(evt any) (string, bool) {
 	if s, ok := evt.(string); ok {
-		return s
+		return s, s != ""
+	}
+	v := reflect.ValueOf(evt)
+	if !v.IsValid() || (v.Kind() == reflect.Pointer && v.IsNil()) {
+		return "", false
 	}
 	if named, ok := evt.(interface{ EventName() string }); ok {
-		return named.EventName()
+		name := named.EventName()
+		return name, name != ""
 	}
-	t := reflect.TypeOf(evt)
-	if t == nil {
-		return ""
+	if v.Kind() == reflect.Pointer {
+		v = v.Elem()
 	}
-	if t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	name := t.Name()
-	for _, suffix := range []string{"T", "Event"} {
-		if len(name) > len(suffix) && name[len(name)-len(suffix):] == suffix {
-			return name[:len(name)-len(suffix)]
+	switch v.Kind() {
+	case reflect.String:
+		return v.String(), v.String() != ""
+	case reflect.Struct:
+		name := v.Type().Name()
+		for _, suffix := range []string{"T", "Event"} {
+			if len(name) > len(suffix) && name[len(name)-len(suffix):] == suffix {
+				return name[:len(name)-len(suffix)], true
+			}
 		}
+		return name, name != ""
+	default:
+		return "", false
 	}
-	return name
 }

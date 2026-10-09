@@ -33,19 +33,45 @@ machine that builds is structurally sound.
 
 ## Events and their names
 
-An event is matched to transitions by its *name*. fate derives the name in this
-order:
+An event is matched to transitions by its *name*. fate derives the name by the
+first rule that applies:
 
-1. if the event is a string, the string itself;
-2. if it has an `EventName() string` method, that;
-3. otherwise the concrete type name via reflection.
+1. a plain string is its own name;
+2. a type with an `EventName() string` method is named by it;
+3. a value of a named string type (`type Kind string`) is its own value;
+4. a named struct, or a pointer to one, is named after its type, less a
+   trailing `T` or `Event`.
 
-For typed events, give them an `EventName` so matching never pays for reflection
-and the wire name is explicit:
+For struct events, an `EventName` method makes the wire name explicit and skips
+reflection:
 
 ```go
-func (Submit) EventName() string { return "Submit" }
+func (Submit) EventName() string { return "SUBMIT" }
 ```
+
+Nothing else has a name fate can derive. Every value of an int enum would
+collapse to the type name, so such a machine names its own events with
+`MachineConfig.EventName`, which replaces the rules above:
+
+```go
+type Step int
+
+const (
+    Submit Step = iota + 1
+    Back
+)
+
+var stepNames = map[Step]string{Submit: "SUBMIT", Back: "BACK"}
+
+engine.MachineConfig[Ctx, Step]{
+    EventName: func(s Step) string { return stepNames[s] },
+    // ...
+}
+```
+
+`Send` returns `ErrUnnamedEvent`, and changes nothing, for an event with no
+name: an int enum with no namer, a nil event, an empty name. `Can` reports
+false for it, and it does not fall through to a `"*"` handler.
 
 The keys in an `On` map are these names.
 
