@@ -24,8 +24,8 @@ type unCtx struct {
 	Hits  int
 }
 
-// Events are plain strings, so eventNameOf returns them unchanged and the On
-// keys below read as themselves.
+// Events are plain strings, so they name themselves and the On keys below read
+// as themselves.
 func unMachine(t *testing.T) *engine.Machine[unCtx, string] {
 	t.Helper()
 	m, err := engine.CreateMachine(engine.MachineConfig[unCtx, string]{

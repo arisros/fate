@@ -12,6 +12,7 @@ import (
 	"github.com/arisros/fate/action"
 	"github.com/arisros/fate/describe"
 	"github.com/arisros/fate/effect"
+	"github.com/arisros/fate/internal"
 	"github.com/arisros/fate/persist"
 )
 
@@ -39,6 +40,13 @@ type MachineConfig[Ctx any, Evt any] struct {
 	// calls it while the actor is locked: it must not call the actor and must
 	// not block.
 	CloneContext func(Ctx) Ctx
+
+	// EventName, if set, returns the name an event dispatches on, the key its
+	// transitions carry in On. It replaces the default rules listed on
+	// Actor.Send, an EventName method included. Set it when Evt is a type
+	// those rules cannot name, such as an int enum. It must be pure, and an
+	// empty result is an ErrUnnamedEvent.
+	EventName func(Evt) string
 
 	// States is the map of immediate child state nodes. Keys are local state
 	// names (e.g. "idle"); values describe each node.
@@ -171,6 +179,7 @@ type Machine[Ctx any, Evt any] struct {
 	id      string
 	context Ctx
 	clone   func(Ctx) Ctx
+	namer   func(Evt) string
 	root    *stateNode[Ctx, Evt]
 }
 
@@ -317,7 +326,28 @@ func CreateMachine[Ctx any, Evt any](cfg MachineConfig[Ctx, Evt]) (*Machine[Ctx,
 		return nil, err
 	}
 
-	return &Machine[Ctx, Evt]{id: cfg.ID, context: cfg.Context, clone: cfg.CloneContext, root: root}, nil
+	return &Machine[Ctx, Evt]{
+		id:      cfg.ID,
+		context: cfg.Context,
+		clone:   cfg.CloneContext,
+		namer:   cfg.EventName,
+		root:    root,
+	}, nil
+}
+
+// eventName resolves the name evt dispatches on, through the machine's
+// EventName when set and the default rules otherwise.
+func (m *Machine[Ctx, Evt]) eventName(evt Evt) (string, error) {
+	if m.namer != nil {
+		if name := m.namer(evt); name != "" {
+			return name, nil
+		}
+		return "", fmt.Errorf("%w: MachineConfig.EventName returned \"\" for %T", ErrUnnamedEvent, evt)
+	}
+	if name, ok := internal.EventName(evt); ok {
+		return name, nil
+	}
+	return "", fmt.Errorf("%w: %T needs an EventName method or MachineConfig.EventName", ErrUnnamedEvent, evt)
 }
 
 // buildNode recursively constructs the post-validation node tree.
