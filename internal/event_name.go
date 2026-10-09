@@ -2,34 +2,44 @@ package internal
 
 import "reflect"
 
-// EventName extracts a string tag for an event. The convention is:
+// EventName extracts the name an event dispatches on. The rules are, in order:
 //
-//  1. If Evt is a string (or string-typed), it is the name directly.
-//  2. If Evt has an EventName() method, that is used.
-//  3. Otherwise, reflection takes the concrete struct type's name and
-//     strips conventional suffixes ("T", "Event") used by codegen.
+//  1. A plain string is its own name.
+//  2. A type with an EventName() method is named by it.
+//  3. A value of a named string type (type Kind string) is its own value.
+//  4. A named struct, or a pointer to one, is named after its type, with the
+//     conventional codegen suffixes ("T", "Event") stripped.
 //
-// Codegen-emitted typed events (per ADR-006) implement EventName() so they
-// don't pay the reflection cost.
-func EventName(evt any) string {
+// Anything else has no name these rules can derive: every value of a named
+// int enum would collapse to the type name. EventName then reports false, as
+// it does for an empty name and for a nil event.
+func EventName(evt any) (string, bool) {
 	if s, ok := evt.(string); ok {
-		return s
+		return s, s != ""
+	}
+	v := reflect.ValueOf(evt)
+	if !v.IsValid() || (v.Kind() == reflect.Pointer && v.IsNil()) {
+		return "", false
 	}
 	if named, ok := evt.(interface{ EventName() string }); ok {
-		return named.EventName()
+		name := named.EventName()
+		return name, name != ""
 	}
-	t := reflect.TypeOf(evt)
-	if t == nil {
-		return ""
+	if v.Kind() == reflect.Pointer {
+		v = v.Elem()
 	}
-	if t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	name := t.Name()
-	for _, suffix := range []string{"T", "Event"} {
-		if len(name) > len(suffix) && name[len(name)-len(suffix):] == suffix {
-			return name[:len(name)-len(suffix)]
+	switch v.Kind() {
+	case reflect.String:
+		return v.String(), v.String() != ""
+	case reflect.Struct:
+		name := v.Type().Name()
+		for _, suffix := range []string{"T", "Event"} {
+			if len(name) > len(suffix) && name[len(name)-len(suffix):] == suffix {
+				return name[:len(name)-len(suffix)], true
+			}
 		}
+		return name, name != ""
+	default:
+		return "", false
 	}
-	return name
 }

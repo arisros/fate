@@ -38,4 +38,10 @@ var (
 
 	// ErrActorStopped is returned by Send when the actor has been Stopped.
 	ErrActorStopped = errors.New("statechart: actor stopped")
+
+	// ErrUnnamedEvent is returned by Send when the event has no name to
+	// dispatch on: the default rules cannot name its type (an int enum with
+	// no EventName method, say) and the machine sets no
+	// MachineConfig.EventName, or the name came back empty.
+	ErrUnnamedEvent = errors.New("statechart: event has no name")
 )
