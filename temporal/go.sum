@@ -1,5 +1,5 @@
-github.com/arisros/fate v0.10.0 h1:4EMLXXWS6VAnnpPv8b6E8yX4uN47b/HbFT3318Imci0=
-github.com/arisros/fate v0.10.0/go.mod h1:c84gUw6GT4/8xGsiXDWzmNhcrfsY8aJsFkY+ZjfPXs0=
+github.com/arisros/fate v0.11.0 h1:KwTyyXiagl/vJagU/QR1xZOl+H3VMzc0hN9a9HjMeuE=
+github.com/arisros/fate v0.11.0/go.mod h1:c84gUw6GT4/8xGsiXDWzmNhcrfsY8aJsFkY+ZjfPXs0=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a h1:yDWHCSQ40h88yih2JAcL6Ls/kVkSE8GFACTGVnMPruw=
