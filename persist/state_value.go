@@ -39,30 +39,35 @@ func (v StateValue) IsAtomic() bool {
 	return len(v.Children) == 0
 }
 
-// Path returns the state value flattened to a dot-separated path. For a
-// compound state {"a": {"b": "c"}}, it returns "a.b.c". For a parallel state
-// with multiple regions, the regions are joined alphabetically with " | ":
-// {"a": "x", "b": "y"} → "a.x | b.y". Used for human-friendly logging and
-// inspection.
+// Path returns the state value flattened to dot-separated paths, one per
+// active leaf. For a compound state {"a": {"b": "c"}}, it returns "a.b.c". For
+// a parallel state the regions are joined alphabetically with " | ", each one
+// a full path from the root: {"a": {"x": "p", "y": "q"}} → "a.x.p | a.y.q".
+// Used for human-friendly logging and inspection.
 func (v StateValue) Path() string {
+	return strings.Join(v.leafPaths(), " | ")
+}
+
+func (v StateValue) leafPaths() []string {
 	if v.IsAtomic() {
-		return v.Leaf
+		return []string{v.Leaf}
 	}
 	keys := make([]string, 0, len(v.Children))
 	for k := range v.Children {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
+	var paths []string
 	for _, k := range keys {
-		child := v.Children[k].Path()
-		if child == "" {
-			parts = append(parts, k)
-		} else {
-			parts = append(parts, k+"."+child)
+		for _, child := range v.Children[k].leafPaths() {
+			if child == "" {
+				paths = append(paths, k)
+			} else {
+				paths = append(paths, k+"."+child)
+			}
 		}
 	}
-	return strings.Join(parts, " | ")
+	return paths
 }
 
 // Matches reports whether the state value matches the given dot-separated
