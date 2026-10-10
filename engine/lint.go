@@ -21,6 +21,9 @@ const (
 	// complete: a compound state with no final child, or a parallel state with
 	// a region that cannot complete.
 	FindingOnDoneNeverFires FindingKind = "on_done_never_fires"
+	// FindingShadowedTransition is a transition that can never fire, because
+	// a candidate before it for the same trigger has no Guard or Cond.
+	FindingShadowedTransition FindingKind = "shadowed_transition"
 )
 
 // Finding is one problem Lint found in a machine.
@@ -32,7 +35,8 @@ type Finding struct {
 }
 
 // Lint reports states that are legal but probably mistakes: unreachable
-// states, dead ends, and OnDone transitions that can never fire. CreateMachine
+// states, dead ends, OnDone transitions that can never fire, and transitions
+// shadowed by an unconditional one before them. CreateMachine
 // accepts all of them, so call Lint from a test to keep a machine clean.
 //
 // The analysis reads structure only. Guards are assumed able to pass, so a
@@ -53,6 +57,9 @@ func (m *Machine[Ctx, Evt]) Lint() []Finding {
 			}
 			if len(n.onDone) > 0 && !canComplete(n) {
 				out = append(out, Finding{FindingOnDoneNeverFires, strings.Join(n.path, "."), "declares OnDone but can never complete"})
+			}
+			for _, trigger := range shadowedTriggers(n) {
+				out = append(out, Finding{FindingShadowedTransition, strings.Join(n.path, "."), trigger + " lists a transition after one with no Guard or Cond, so it can never fire"})
 			}
 		}
 		for _, name := range slices.Sorted(maps.Keys(n.children)) {
@@ -125,6 +132,36 @@ func reachableStates[Ctx any, Evt any](root *stateNode[Ctx, Evt]) map[*stateNode
 		}
 	}
 	return reached
+}
+
+// firstUnconditional returns the index of the first candidate with no Guard
+// and no Cond, or -1. Every candidate after it can never fire.
+func firstUnconditional[Ctx any, Evt any](ts []TransitionConfig[Ctx, Evt]) int {
+	return slices.IndexFunc(ts, func(t TransitionConfig[Ctx, Evt]) bool { return t.Guard == nil && t.Cond == nil })
+}
+
+// shadowedTriggers names, in a stable order, the triggers of n whose candidate
+// list continues past an unconditional transition.
+func shadowedTriggers[Ctx any, Evt any](n *stateNode[Ctx, Evt]) []string {
+	shadowed := func(ts []TransitionConfig[Ctx, Evt]) bool {
+		open := firstUnconditional(ts)
+		return open >= 0 && open < len(ts)-1
+	}
+	var out []string
+	for _, event := range slices.Sorted(maps.Keys(n.on)) {
+		if shadowed(n.on[event]) {
+			out = append(out, "event "+event)
+		}
+	}
+	for _, ae := range n.after {
+		if shadowed(ae.transitions) {
+			out = append(out, "After "+ae.delay.String())
+		}
+	}
+	if shadowed(n.onDone) {
+		out = append(out, "OnDone")
+	}
+	return out
 }
 
 func allTransitions[Ctx any, Evt any](n *stateNode[Ctx, Evt]) []TransitionConfig[Ctx, Evt] {

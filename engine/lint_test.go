@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/arisros/fate/engine"
+	"github.com/arisros/fate/render"
 )
 
 type (
@@ -119,5 +120,60 @@ func TestCreateMachine_RejectsAnUnresolvedOnDoneTarget(t *testing.T) {
 	})
 	if !errors.Is(err, engine.ErrUnknownTarget) {
 		t.Errorf("err %v, want ErrUnknownTarget", err)
+	}
+}
+
+func TestLint_ReportsShadowedTransitions(t *testing.T) {
+	never := func(struct{}, string) bool { return false }
+	m := lintMachine(t, map[string]lintState{
+		"draft": {
+			On: map[string][]lintTrans{
+				// a fallback last is the intended shape and stays clean
+				"ROUTE": {{Target: "fast", Guard: never}, {Target: "slow"}},
+				"SKIP":  {{Target: "slow"}, {Target: "fast", Guard: never}},
+			},
+			After: map[time.Duration][]lintTrans{time.Minute: {{Target: "slow"}, {Target: "fast"}}},
+		},
+		"fast": {Type: engine.NodeFinal},
+		"slow": {Type: engine.NodeFinal},
+	})
+	want := []engine.Finding{
+		{Kind: engine.FindingShadowedTransition, State: "draft", Message: "event SKIP lists a transition after one with no Guard or Cond, so it can never fire"},
+		{Kind: engine.FindingShadowedTransition, State: "draft", Message: "After 1m0s lists a transition after one with no Guard or Cond, so it can never fire"},
+	}
+	if got := m.Lint(); !reflect.DeepEqual(got, want) {
+		t.Errorf("findings:\n got %+v\nwant %+v", got, want)
+	}
+}
+
+func TestDescribe_MarksFallbackAndShadowedTransitions(t *testing.T) {
+	never := func(struct{}, string) bool { return false }
+	m := lintMachine(t, map[string]lintState{
+		"draft": {On: map[string][]lintTrans{
+			"ROUTE": {{Target: "fast", Guard: never}, {Target: "slow"}, {Target: "fast"}},
+			"ONLY":  {{Target: "slow"}},
+		}},
+		"fast": {Type: engine.NodeFinal},
+		"slow": {Type: engine.NodeFinal},
+	})
+	on := m.Describe().States["draft"].On
+	type flags struct{ fallback, shadowed bool }
+	var got []flags
+	for _, td := range append(on["ROUTE"], on["ONLY"]...) {
+		got = append(got, flags{td.Fallback, td.Shadowed})
+	}
+	want := []flags{{false, false}, {true, false}, {false, true}, {false, false}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("flags: got %+v, want %+v", got, want)
+	}
+
+	var edges []flags
+	for _, e := range render.GraphJSON(m.Describe()).Edges {
+		if e.Event == "ROUTE" {
+			edges = append(edges, flags{e.Fallback, e.Shadowed})
+		}
+	}
+	if !reflect.DeepEqual(edges, want[:3]) {
+		t.Errorf("graph edges: got %+v, want %+v", edges, want[:3])
 	}
 }

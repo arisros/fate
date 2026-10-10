@@ -89,11 +89,14 @@ func (m *Machine[Ctx, Evt]) describeNode(n *stateNode[Ctx, Evt]) describe.StateN
 
 func (m *Machine[Ctx, Evt]) describeTransitions(ts []TransitionConfig[Ctx, Evt]) []describe.TransitionDescriptor {
 	out := make([]describe.TransitionDescriptor, 0, len(ts))
-	for _, t := range ts {
+	open := firstUnconditional(ts)
+	for i, t := range ts {
 		td := describe.TransitionDescriptor{
 			Target:   t.Target,
 			Internal: t.Internal,
 			CondMeta: t.CondMeta.Clone(),
+			Fallback: i == open && i > 0,
+			Shadowed: open >= 0 && i > open,
 			Meta:     slices.Clone(t.meta),
 		}
 		td.Guard = t.GuardName
