@@ -71,5 +71,7 @@ type TransitionDescriptor struct {
 	Guard    string           `json:"guard,omitempty"`
 	Actions  []string         `json:"actions,omitempty"`
 	CondMeta *action.CondMeta `json:"cond_meta,omitempty"`
+	Fallback bool             `json:"fallback,omitempty"`
+	Shadowed bool             `json:"shadowed,omitempty"`
 	Meta     json.RawMessage  `json:"meta,omitempty"`
 }
