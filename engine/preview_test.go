@@ -89,7 +89,7 @@ func TestPreview_ReturnsTheNextSnapshotAndLeavesTheActorAlone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Preview: %v", err)
 	}
-	if got, want := next.Value.Path(), "work.docs.missing | form.submitted"; got != want {
+	if got, want := next.Value.Path(), "work.docs.missing | work.form.submitted"; got != want {
 		t.Errorf("previewed value %q, want %q", got, want)
 	}
 	if next.Context.Seen != 1 || next.Context.Notes["SUBMIT"] != "seen" {

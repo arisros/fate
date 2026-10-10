@@ -28,26 +28,31 @@ func (v StateValue) IsAtomic() bool {
 	return len(v.Children) == 0
 }
 
-// Path returns the state value flattened to a dot-separated path.
+// Path returns the state value flattened to dot-separated paths, one per active leaf.
 func (v StateValue) Path() string {
+	return strings.Join(v.leafPaths(), " | ")
+}
+
+func (v StateValue) leafPaths() []string {
 	if v.IsAtomic() {
-		return v.Leaf
+		return []string{v.Leaf}
 	}
 	keys := make([]string, 0, len(v.Children))
 	for k := range v.Children {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
+	var paths []string
 	for _, k := range keys {
-		child := v.Children[k].Path()
-		if child == "" {
-			parts = append(parts, k)
-		} else {
-			parts = append(parts, k+"."+child)
+		for _, child := range v.Children[k].leafPaths() {
+			if child == "" {
+				paths = append(paths, k)
+			} else {
+				paths = append(paths, k+"."+child)
+			}
 		}
 	}
-	return strings.Join(parts, " | ")
+	return paths
 }
 
 // Matches reports whether the state value matches the given dot-separated target path.
