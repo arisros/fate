@@ -76,8 +76,8 @@ func TestParallelOnDone_JoinsWhenEveryRegionIsFinal(t *testing.T) {
 
 func TestParallelOnDone_WaitsForEveryRegion(t *testing.T) {
 	for event, want := range map[string]string{
-		"BOOK": "review.book.closed | ux.open",
-		"UX":   "review.book.open | ux.closed",
+		"BOOK": "review.book.closed | review.ux.open",
+		"UX":   "review.book.open | review.ux.closed",
 	} {
 		snap := doneActor(t, joinStates(doneTrans{Target: "joined"}), event).Snapshot()
 		if got := snap.Value.Path(); got != want {
@@ -181,9 +181,9 @@ func TestCompoundOnDone_FiresInEveryRegion(t *testing.T) {
 		events []string
 		want   string
 	}{
-		{[]string{"BOOK"}, "review.book.after | ux.step.open"},
-		{[]string{"UX"}, "review.book.step.open | ux.after"},
-		{[]string{"UX", "BOOK"}, "review.book.after | ux.after"},
+		{[]string{"BOOK"}, "review.book.after | review.ux.step.open"},
+		{[]string{"UX"}, "review.book.step.open | review.ux.after"},
+		{[]string{"UX", "BOOK"}, "review.book.after | review.ux.after"},
 	} {
 		if got := doneActor(t, states, tc.events...).Snapshot().Value.Path(); got != tc.want {
 			t.Errorf("%v: value %q, want %q", tc.events, got, tc.want)

@@ -70,3 +70,26 @@ func TestStateValue_Matches(t *testing.T) {
 		}
 	}
 }
+
+func TestStateValue_Path(t *testing.T) {
+	cases := []struct {
+		name string
+		v    StateValue
+		want string
+	}{
+		{"atomic", AtomicValue("idle"), "idle"},
+		{"compound", CompoundValue(map[string]StateValue{"a": CompoundValue(map[string]StateValue{"b": AtomicValue("c")})}), "a.b.c"},
+		{"root parallel", CompoundValue(map[string]StateValue{"b": AtomicValue("y"), "a": AtomicValue("x")}), "a.x | b.y"},
+		{"nested parallel", CompoundValue(map[string]StateValue{"order": CompoundValue(map[string]StateValue{
+			"payment":     AtomicValue("pending"),
+			"fulfillment": AtomicValue("packing"),
+		})}), "order.fulfillment.packing | order.payment.pending"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.v.Path(); got != tc.want {
+				t.Errorf("Path() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
