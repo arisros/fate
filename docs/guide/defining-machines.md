@@ -320,6 +320,12 @@ mistake:
 | `unreachable` | no initial chain or transition enters the state |
 | `dead_end` | the state is not final and no transition on it or an ancestor leaves it |
 | `on_done_never_fires` | the state declares `OnDone` and can never complete |
+| `shadowed_transition` | a transition is listed after one with no `Guard` or `Cond` for the same trigger, so it can never fire |
+
+The descriptor carries the last check per transition too. `Describe` sets
+`fallback` on an unconditional transition that follows conditional ones, the
+"otherwise" branch, and `shadowed` on every transition after an unconditional
+one. `render.GraphJSON` copies both onto edges, so a diagram can label them.
 
 Guards are assumed able to pass. Call it from a test:
 
