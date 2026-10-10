@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.13.0](https://github.com/arisros/fate/compare/v0.12.0...v0.13.0) (2026-10-10)
+
+
+### Added
+
+* **engine:** mark fallback transitions and lint shadowed ones ([#56](https://github.com/arisros/fate/issues/56)) ([f3bef45](https://github.com/arisros/fate/commit/f3bef4579ab4cdd9002748de8e6bb9400a856081))
+
 ## [0.12.0](https://github.com/arisros/fate/compare/v0.11.0...v0.12.0) (2026-10-10)
 
 
