@@ -85,6 +85,12 @@ type TransitionDescriptor struct {
 	Guard    string           `json:"guard,omitempty"`
 	Actions  []string         `json:"actions,omitempty"`
 	CondMeta *action.CondMeta `json:"cond_meta,omitempty"`
+	// Fallback marks the transition taken when every candidate before it is
+	// refused: it has no Guard or Cond and follows candidates that do.
+	Fallback bool `json:"fallback,omitempty"`
+	// Shadowed marks a transition that can never fire, because a candidate
+	// before it has no Guard or Cond and always wins.
+	Shadowed bool `json:"shadowed,omitempty"`
 	// Meta is the transition's TransitionConfig.Meta as a JSON object.
 	Meta json.RawMessage `json:"meta,omitempty"`
 }

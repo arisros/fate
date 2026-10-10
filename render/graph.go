@@ -42,6 +42,9 @@ type GraphEdge struct {
 	Actions  []string         `json:"actions,omitempty"`
 	Internal bool             `json:"internal,omitempty"`
 	CondMeta *action.CondMeta `json:"cond_meta,omitempty"`
+	// Fallback and Shadowed carry the descriptor's flags of the same name.
+	Fallback bool `json:"fallback,omitempty"`
+	Shadowed bool `json:"shadowed,omitempty"`
 	// Meta is the transition's Meta as a JSON object.
 	Meta json.RawMessage `json:"meta,omitempty"`
 }
@@ -117,6 +120,8 @@ func edgeFor(srcPath, event string, t describe.TransitionDescriptor, idx descrip
 		Actions:  t.Actions,
 		Internal: t.Internal,
 		CondMeta: t.CondMeta,
+		Fallback: t.Fallback,
+		Shadowed: t.Shadowed,
 		Meta:     t.Meta,
 	}
 }
