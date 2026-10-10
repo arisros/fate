@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.12.0](https://github.com/arisros/fate/compare/v0.11.0...v0.12.0) (2026-10-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **persist:** `StateValue.Path()` now returns a full root path for every parallel region (`order.fulfillment.packing | order.payment.pending`, previously `order.fulfillment.packing | payment.pending`). Update any code that string-matches or parses the old output.
+
+### Fixed
+
+* **persist:** prefix every parallel region in state value path ([#54](https://github.com/arisros/fate/issues/54)) ([b21cfba](https://github.com/arisros/fate/commit/b21cfba06cc386275c052283a571b98fa6fff264))
+
 ## [0.11.0](https://github.com/arisros/fate/compare/v0.10.1...v0.11.0) (2026-10-09)
 
 
