@@ -142,9 +142,18 @@ func (h *Handler[Ctx, Evt]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handleTimeline(w, r)
 	case "export":
 		h.handleExport(w, r)
+	case "sources":
+		h.handleSources(w, r)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// handleSources serves where the machine and its guards and actions are
+// written, so a tool can link the chart back to code.
+func (h *Handler[Ctx, Evt]) handleSources(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("content-type", "application/json")
+	_ = json.NewEncoder(w).Encode(h.machine.Sources())
 }
 
 // ----- snapshot building -----
