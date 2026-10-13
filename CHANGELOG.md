@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.14.0](https://github.com/arisros/fate/compare/v0.13.0...v0.14.0) (2026-10-13)
+
+
+### Added
+
+* **engine:** report where a machine and its guards and actions are written ([#58](https://github.com/arisros/fate/issues/58)) ([0b6617c](https://github.com/arisros/fate/commit/0b6617c412f6461e4352fbf8c4296bd72fe29374))
+
 ## [0.13.0](https://github.com/arisros/fate/compare/v0.12.0...v0.13.0) (2026-10-10)
 
 
