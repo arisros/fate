@@ -119,7 +119,7 @@ actor.SubscribeSteps(func(s engine.Step) {
 
 A state listed in both `Exited` and `Entered` was restarted, so an adapter
 cancels and restarts its timers and invocations. The same record is what an audit
-trail stores. See [ADR-0008](../adr/0008-step-records.md).
+trail stores.
 
 ### Three adapters, one machine
 
