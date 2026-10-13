@@ -1,12 +1,14 @@
 package describe
 
 // SourceLocation is where one piece of a machine is written in Go source.
+// A method value such as svc.Check is located by Func alone: File, Line and
+// Path are empty.
 type SourceLocation struct {
 	// File is the package import path joined with the file's base name, such as
 	// "github.com/acme/app/orders/machine.go". It is the same on every host.
-	File string `json:"file"`
+	File string `json:"file,omitempty"`
 	// Line is the 1-based line number in File.
-	Line int `json:"line"`
+	Line int `json:"line,omitempty"`
 	// Func is the Go function a guard or action runs. Empty for a machine.
 	Func string `json:"func,omitempty"`
 	// Path is the file as the compiler recorded it: absolute on the build host,
@@ -41,14 +43,29 @@ type MachineSources struct {
 	States map[string]StateSources `json:"states,omitempty"`
 }
 
-// StateSources locates a state's actions and transitions. Every slice lines up
-// with the slice of the same name in StateNodeDescriptor; an entry is nil when
-// that element has no recoverable location.
+// StateSources locates a state's actions and transitions. Entry, Exit, On and
+// OnDone line up with the slice of the same name in StateNodeDescriptor; an
+// entry is nil when that element has no recoverable location.
 type StateSources struct {
 	Entry  []*SourceLocation              `json:"entry,omitempty"`
 	Exit   []*SourceLocation              `json:"exit,omitempty"`
 	On     map[string][]TransitionSources `json:"on,omitempty"`
 	OnDone []TransitionSources            `json:"on_done,omitempty"`
+	// After is keyed by the delay as time.Duration prints it, such as "30s".
+	After map[string][]TransitionSources `json:"after,omitempty"`
+	// Invoke lines up with the state's invocations in declaration order.
+	Invoke []InvokeSources `json:"invoke,omitempty"`
+	// Output is the final state's Output func.
+	Output *SourceLocation `json:"output,omitempty"`
+}
+
+// InvokeSources locates the funcs of one invocation.
+type InvokeSources struct {
+	// ID is the invocation's ID within its state.
+	ID      string          `json:"id"`
+	Input   *SourceLocation `json:"input,omitempty"`
+	OnDone  *SourceLocation `json:"on_done,omitempty"`
+	OnError *SourceLocation `json:"on_error,omitempty"`
 }
 
 // TransitionSources locates one transition's guard and actions. Actions lines

@@ -342,7 +342,7 @@ written, so a tool can jump from a chart to the code behind it:
 
 ```go
 src := m.Sources()
-src.Machine                              // where CreateMachine was called
+src.Machine                                 // where CreateMachine was called
 src.States["review"].On["APPROVE"][0].Guard // the guard's func
 ```
 
@@ -352,9 +352,18 @@ recorded. `Build` adds the main module and, when the binary is stamped, the
 commit it was built from.
 
 A guard or action is located by the function it runs. A `Raise` or `Log` has
-none, and neither does a guard assembled with `And`, `Or` or `Not`. Locations
-are kept out of `Describe`, so descriptors and snapshots do not change when a
-line moves. `httphandler` serves the same data at `/sources`.
+none, and neither does a guard assembled with `And`, `Or` or `Not`. A method
+value such as `svc.Check` is located by name only, with no file or line.
+`After` transitions, an invocation's `Input`, `OnDone` and `OnError`, and a
+final state's `Output` are located the same way.
+
+`src.Machine` is the line that called `CreateMachine`, so machines built by
+one shared factory function all report the factory.
+
+Locations are kept out of `Describe`, so descriptors and snapshots do not
+change when a line moves. `httphandler` serves the same data at `/sources`,
+without the compiler-recorded path, which can be an absolute path on the
+build host.
 
 ## Delayed transitions and invocations
 
