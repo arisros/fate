@@ -57,6 +57,10 @@ func (a assignAction[Ctx, Evt]) Apply(c Ctx, e Evt, _ Sink[Evt]) Ctx {
 // what the assignment does.
 func (a assignAction[Ctx, Evt]) ImplName() string { return "assign" }
 
+// ImplFunc returns the function the action runs, so the engine can report
+// where it is written.
+func (a assignAction[Ctx, Evt]) ImplFunc() any { return a.fn }
+
 // Raise returns an action that places an event onto the actor's internal
 // queue. The event is processed before Send returns control to the caller.
 // Equivalent to XState's `raise()`.
@@ -141,6 +145,9 @@ func (a namedAction[Ctx, Evt]) Apply(c Ctx, e Evt, sink Sink[Evt]) Ctx {
 // ImplName reports the caller-chosen label.
 func (a namedAction[Ctx, Evt]) ImplName() string { return a.name }
 
+// Unwrap returns the action the name was attached to.
+func (a namedAction[Ctx, Evt]) Unwrap() Action[Ctx, Evt] { return a.inner }
+
 // Enqueuer is the surface inside an EnqueueActions block. It batches a series
 // of context updates, raises, and logs into one atomic application — the
 // raised events accumulate but are not processed until the whole batch's
@@ -201,3 +208,7 @@ func (a enqueueAction[Ctx, Evt]) Apply(c Ctx, e Evt, sink Sink[Evt]) Ctx {
 // batch is an opaque closure, so the label names the kind; wrap it in [Named] to
 // say what the batch does.
 func (a enqueueAction[Ctx, Evt]) ImplName() string { return "enqueue" }
+
+// ImplFunc returns the function the action runs, so the engine can report
+// where it is written.
+func (a enqueueAction[Ctx, Evt]) ImplFunc() any { return a.fn }

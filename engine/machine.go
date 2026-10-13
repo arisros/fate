@@ -178,6 +178,7 @@ type TransitionConfig[Ctx any, Evt any] struct {
 type Machine[Ctx any, Evt any] struct {
 	id      string
 	context Ctx
+	source  *describe.SourceLocation
 	clone   func(Ctx) Ctx
 	namer   func(Evt) string
 	root    *stateNode[Ctx, Evt]
@@ -332,6 +333,7 @@ func CreateMachine[Ctx any, Evt any](cfg MachineConfig[Ctx, Evt]) (*Machine[Ctx,
 		clone:   cfg.CloneContext,
 		namer:   cfg.EventName,
 		root:    root,
+		source:  callerLocation(),
 	}, nil
 }
 
