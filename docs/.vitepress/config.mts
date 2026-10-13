@@ -15,8 +15,7 @@ export default defineConfig({
   cleanUrls: true,
   appearance: 'dark',
 
-  srcExclude: ['README.md'],
-  rewrites: { 'adr/README.md': 'adr/index.md' },
+  srcExclude: ['README.md', 'adr/**'],
 
   head: [
     ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
@@ -72,21 +71,6 @@ export default defineConfig({
           { text: 'The fate CLI', link: '/cli' },
           { text: 'Versioning and deprecation', link: '/versioning' },
           { text: 'API reference', link: 'https://pkg.go.dev/github.com/arisros/fate' },
-        ],
-      },
-      {
-        text: 'Decisions',
-        collapsed: true,
-        items: [
-          { text: 'Overview', link: '/adr/' },
-          { text: '0001 · Provenance and license', link: '/adr/0001-provenance-and-license' },
-          { text: '0002 · Public API', link: '/adr/0002-public-api' },
-          { text: '0003 · Scheduler and timers', link: '/adr/0003-scheduler-and-timer-model' },
-          { text: '0004 · Invoke and spawn', link: '/adr/0004-invoke-spawn-effects' },
-          { text: '0005 · Temporal boundary', link: '/adr/0005-temporal-integration-boundary' },
-          { text: '0006 · Dropped events', link: '/adr/0006-observability-of-dropped-events' },
-          { text: '0007 · Package layout', link: '/adr/0007-package-layout' },
-          { text: '0008 · Step records', link: '/adr/0008-step-records' },
         ],
       },
     ],
