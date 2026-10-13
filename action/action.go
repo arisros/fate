@@ -34,6 +34,9 @@ func (a assignAction[Ctx, Evt]) Apply(c Ctx, e Evt, _ Sink[Evt]) Ctx {
 // ImplName reports the label this action carries in a describe.MachineDescriptor, and through it in every rendered diagram.
 func (a assignAction[Ctx, Evt]) ImplName() string { return "assign" }
 
+// ImplFunc returns the function the action runs, so the engine can report where it is written.
+func (a assignAction[Ctx, Evt]) ImplFunc() any { return a.fn }
+
 // Raise returns an action that places an event onto the actor's internal queue.
 func Raise[Ctx any, Evt any](evt Evt) Action[Ctx, Evt] {
 	return raiseAction[Ctx, Evt]{evt: evt}
@@ -99,6 +102,9 @@ func (a namedAction[Ctx, Evt]) Apply(c Ctx, e Evt, sink Sink[Evt]) Ctx {
 // ImplName reports the caller-chosen label.
 func (a namedAction[Ctx, Evt]) ImplName() string { return a.name }
 
+// Unwrap returns the action the name was attached to.
+func (a namedAction[Ctx, Evt]) Unwrap() Action[Ctx, Evt] { return a.inner }
+
 // Enqueuer is the surface inside an EnqueueActions block.
 type Enqueuer[Ctx any, Evt any] struct {
 	ctx     Ctx
@@ -151,3 +157,6 @@ func (a enqueueAction[Ctx, Evt]) Apply(c Ctx, e Evt, sink Sink[Evt]) Ctx {
 
 // ImplName reports the label this action carries in a describe.MachineDescriptor.
 func (a enqueueAction[Ctx, Evt]) ImplName() string { return "enqueue" }
+
+// ImplFunc returns the function the action runs, so the engine can report where it is written.
+func (a enqueueAction[Ctx, Evt]) ImplFunc() any { return a.fn }

@@ -335,6 +335,27 @@ if findings := machine.Lint(); len(findings) > 0 {
 }
 ```
 
+## Finding a machine in source
+
+`Machine.Sources` reports where a machine and its guards and actions are
+written, so a tool can jump from a chart to the code behind it:
+
+```go
+src := m.Sources()
+src.Machine                              // where CreateMachine was called
+src.States["review"].On["APPROVE"][0].Guard // the guard's func
+```
+
+A location carries an import-path file name that is the same on every host
+(`github.com/acme/app/orders/machine.go`), a line, and the path the compiler
+recorded. `Build` adds the main module and, when the binary is stamped, the
+commit it was built from.
+
+A guard or action is located by the function it runs. A `Raise` or `Log` has
+none, and neither does a guard assembled with `And`, `Or` or `Not`. Locations
+are kept out of `Describe`, so descriptors and snapshots do not change when a
+line moves. `httphandler` serves the same data at `/sources`.
+
 ## Delayed transitions and invocations
 
 States can also declare `After` (delayed transitions) and `Invoke` (work to run
