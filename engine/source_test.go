@@ -3,14 +3,13 @@ package engine_test
 import (
 	"encoding/json"
 	"fmt"
-	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/arisros/fate/action"
-	"github.com/arisros/fate/describe"
+	"github.com/arisros/fate/effect"
 	"github.com/arisros/fate/engine"
-	"github.com/arisros/fate/httphandler"
 )
 
 type srcCtx struct{ N int }
@@ -148,19 +147,103 @@ func TestSources_LeaveTheDescriptorUntouched(t *testing.T) {
 	}
 }
 
-func TestHandler_ServesSources(t *testing.T) {
-	h := httphandler.New(srcMachine(t), func(name string) (srcEvt, error) { return srcEvt{Name: name}, nil })
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("GET", "/sources", nil))
-	if rec.Code != 200 {
-		t.Fatalf("status = %d", rec.Code)
-	}
-	var got describe.MachineSources
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+type srcChecker struct{ min int }
+
+func (k srcChecker) Check(c srcCtx, _ srcEvt) bool { return c.N > k.min }
+
+func srcOutput(c srcCtx) any { return c.N }
+
+func srcInput(c srcCtx) any { return c.N }
+
+func srcDone(any) srcEvt { return srcEvt{Name: "DONE"} }
+
+func TestSources_LocatesAfterInvokeAndOutput(t *testing.T) {
+	m, err := engine.CreateMachine(engine.MachineConfig[srcCtx, srcEvt]{
+		ID:      "effects",
+		Initial: "waiting",
+		States: map[string]engine.StateNodeConfig[srcCtx, srcEvt]{
+			"waiting": {
+				After: map[time.Duration][]engine.TransitionConfig[srcCtx, srcEvt]{
+					30 * time.Second: {{Target: "end", Guard: srcIsPositive, Actions: []action.Action[srcCtx, srcEvt]{action.Assign(srcBump)}}},
+					time.Minute:      {{Target: "end"}},
+				},
+				Invoke: []effect.Invocation[srcCtx, srcEvt]{
+					{ID: "plain", Src: "work"},
+					{ID: "mapped", Src: "work", Input: srcInput, OnDone: srcDone},
+				},
+			},
+			"end": {Type: engine.NodeFinal, Output: srcOutput},
+		},
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Machine == nil || got.Machine.File != srcFile {
-		t.Errorf("served machine location = %+v", got.Machine)
+	src := m.Sources()
+
+	waiting := src.States["waiting"]
+	after := waiting.After["30s"]
+	if len(after) != 1 || after[0].Guard == nil || after[0].Guard.Func != "engine_test.srcIsPositive" {
+		t.Fatalf("after 30s = %+v", after)
+	}
+	if a := after[0].Actions; len(a) != 1 || a[0] == nil || a[0].Func != "engine_test.srcBump" {
+		t.Errorf("after action = %+v", a)
+	}
+	if _, ok := waiting.After["1m0s"]; ok {
+		t.Error("a delay with nothing located should be left out")
+	}
+
+	inv := waiting.Invoke
+	if len(inv) != 2 || inv[0].ID != "plain" || inv[0].Input != nil || inv[0].OnDone != nil {
+		t.Fatalf("invoke = %+v", inv)
+	}
+	if inv[1].ID != "mapped" || inv[1].Input == nil || inv[1].Input.Func != "engine_test.srcInput" ||
+		inv[1].OnDone == nil || inv[1].OnDone.Func != "engine_test.srcDone" || inv[1].OnError != nil {
+		t.Errorf("mapped invocation = %+v", inv[1])
+	}
+
+	if out := src.States["end"].Output; out == nil || out.Func != "engine_test.srcOutput" || out.File != srcFile {
+		t.Errorf("output = %+v", out)
+	}
+}
+
+func TestSources_LocatesWrappedMethods(t *testing.T) {
+	k := srcChecker{min: 1}
+	m, err := engine.CreateMachine(engine.MachineConfig[srcCtx, srcEvt]{
+		ID:      "wrapped",
+		Initial: "a",
+		States: map[string]engine.StateNodeConfig[srcCtx, srcEvt]{
+			"a": {
+				Entry: []action.Action[srcCtx, srcEvt]{&srcCustom{}},
+				On: map[string][]engine.TransitionConfig[srcCtx, srcEvt]{
+					"GO": {{Target: "b", Guard: k.Check}},
+				},
+			},
+			"b": {},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := m.Sources().States["a"]
+
+	if e := a.Entry; len(e) != 1 || e[0] == nil || e[0].Func != "engine_test.srcCustom.Apply" || e[0].File != srcFile || e[0].Line == 0 {
+		t.Errorf("value-receiver action behind a pointer = %+v", e)
+	}
+	g := a.On["GO"][0].Guard
+	if g == nil || g.Func != "engine_test.srcChecker.Check" {
+		t.Fatalf("method value guard = %+v", g)
+	}
+	if g.File != "" || g.Line != 0 || g.Path != "" {
+		t.Errorf("a method value is located by name only, got %+v", g)
+	}
+}
+
+func TestSources_ReturnsACopy(t *testing.T) {
+	m := srcMachine(t)
+	want := m.Sources().Machine.Line
+	m.Sources().Machine.Line = -1
+	if got := m.Sources().Machine.Line; got != want {
+		t.Errorf("machine line = %d after a caller changed its copy, want %d", got, want)
 	}
 }
 

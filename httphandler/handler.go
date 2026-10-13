@@ -112,8 +112,42 @@ func (h *Handler[Ctx, Evt]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler[Ctx, Evt]) handleSources(w http.ResponseWriter, _ *http.Request) {
+	src := h.machine.Sources()
+	stripPaths(&src)
 	w.Header().Set("content-type", "application/json")
-	_ = json.NewEncoder(w).Encode(h.machine.Sources())
+	_ = json.NewEncoder(w).Encode(src)
+}
+
+func stripPaths(src *describe.MachineSources) {
+	strip := func(locs ...*describe.SourceLocation) {
+		for _, l := range locs {
+			if l != nil {
+				l.Path = ""
+			}
+		}
+	}
+	transitions := func(ts []describe.TransitionSources) {
+		for _, t := range ts {
+			strip(t.Guard)
+			strip(t.Actions...)
+		}
+	}
+	strip(src.Machine)
+	for _, st := range src.States {
+		strip(st.Entry...)
+		strip(st.Exit...)
+		strip(st.Output)
+		transitions(st.OnDone)
+		for _, ts := range st.On {
+			transitions(ts)
+		}
+		for _, ts := range st.After {
+			transitions(ts)
+		}
+		for _, inv := range st.Invoke {
+			strip(inv.Input, inv.OnDone, inv.OnError)
+		}
+	}
 }
 
 func (h *Handler[Ctx, Evt]) buildSnapshot(a *engine.Actor[Ctx, Evt]) LiveSnapshot {

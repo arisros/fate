@@ -534,6 +534,35 @@ func TestSessionIsolation(t *testing.T) {
 	}
 }
 
+func TestSources_OmitsBuildHostPaths(t *testing.T) {
+	m := demoMachine(t)
+	if m.Sources().Machine.Path == "" {
+		t.Fatal("the machine should know its own path")
+	}
+	rec := httptest.NewRecorder()
+	httphandler.New(m, demoDispatch).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/sources", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var got describe.MachineSources
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	const file = "github.com/arisros/fate/httphandler_test/handler_test.go"
+	if got.Machine == nil || got.Machine.File != file {
+		t.Errorf("served machine location = %+v", got.Machine)
+	}
+	if a := got.States["idle"].On["GO"][0].Actions; len(a) != 1 || a[0] == nil || a[0].File != file {
+		t.Errorf("served action location = %+v", a)
+	}
+	if inv := got.States["running"].Invoke; len(inv) != 1 || inv[0].OnDone == nil || inv[0].OnError == nil {
+		t.Errorf("served invocation = %+v", inv)
+	}
+	if strings.Contains(rec.Body.String(), `"path"`) {
+		t.Errorf("the response carries a build-host path: %s", rec.Body)
+	}
+}
+
 func TestUnknownRoute(t *testing.T) {
 	srv := newServer(t)
 	resp := get(t, newClient(), srv.URL+"/bogus")

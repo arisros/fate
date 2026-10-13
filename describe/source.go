@@ -2,8 +2,8 @@ package describe
 
 // SourceLocation is where one piece of a machine is written in Go source.
 type SourceLocation struct {
-	File string `json:"file"`
-	Line int    `json:"line"`
+	File string `json:"file,omitempty"`
+	Line int    `json:"line,omitempty"`
 	Func string `json:"func,omitempty"`
 	Path string `json:"path,omitempty"`
 }
@@ -29,6 +29,17 @@ type StateSources struct {
 	Exit   []*SourceLocation              `json:"exit,omitempty"`
 	On     map[string][]TransitionSources `json:"on,omitempty"`
 	OnDone []TransitionSources            `json:"on_done,omitempty"`
+	After  map[string][]TransitionSources `json:"after,omitempty"`
+	Invoke []InvokeSources                `json:"invoke,omitempty"`
+	Output *SourceLocation                `json:"output,omitempty"`
+}
+
+// InvokeSources locates the funcs of one invocation.
+type InvokeSources struct {
+	ID      string          `json:"id"`
+	Input   *SourceLocation `json:"input,omitempty"`
+	OnDone  *SourceLocation `json:"on_done,omitempty"`
+	OnError *SourceLocation `json:"on_error,omitempty"`
 }
 
 // TransitionSources locates one transition's guard and actions.

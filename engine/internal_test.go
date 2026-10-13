@@ -27,3 +27,30 @@ func TestExitDomainKeepsAParallelDomainWhenTargetIsOutsideIt(t *testing.T) {
 		t.Errorf("exitDomain(nil, ...) = %v, want nil", got)
 	}
 }
+
+func TestLocationNamesTheFuncByItsPackage(t *testing.T) {
+	cases := []struct{ symbol, file, wantFile, wantFunc string }{
+		{"github.com/acme/app/orders.New.func1", "/src/orders/machine.go", "github.com/acme/app/orders/machine.go", "orders.New.func1"},
+		{"gopkg.in/yaml%2ev3.(*Node).Decode", "/src/yaml.v3/node.go", "gopkg.in/yaml.v3/node.go", "yaml.v3.(*Node).Decode"},
+		{"github.com/acme/app/orders.Pick[go.shape.int]", "/src/orders/pick.go", "github.com/acme/app/orders/pick.go", "orders.Pick[go.shape.int]"},
+	}
+	for _, c := range cases {
+		got := location(c.symbol, c.file, 7)
+		if got.File != c.wantFile || got.Func != c.wantFunc {
+			t.Errorf("location(%q) = %q %q, want %q %q", c.symbol, got.File, got.Func, c.wantFile, c.wantFunc)
+		}
+	}
+
+	if got := location("main.isReady", "/src/cmd/server/main.go", 7); got.Func != "main.isReady" {
+		t.Errorf("a func in package main is named %q, want main.isReady", got.Func)
+	}
+}
+
+func TestWrapperLocationSkipsTheEngine(t *testing.T) {
+	if got := wrapperLocation(actionPkg + ".Guard[go.shape.int].Call-fm"); got != nil {
+		t.Errorf("an engine wrapper was located at %+v", got)
+	}
+	if got := wrapperLocation("github.com/acme/app/orders.Service.Check-fm"); got == nil || got.Func != "orders.Service.Check" {
+		t.Errorf("method value = %+v", got)
+	}
+}
