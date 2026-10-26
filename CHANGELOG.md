@@ -7,6 +7,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.15.0](https://github.com/arisros/fate/compare/v0.14.1...v0.15.0) (2026-10-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **persist:** `StateValue.Path()` now returns a full root path for every parallel region (`order.fulfillment.packing | order.payment.pending`, previously `order.fulfillment.packing | payment.pending`). Update any code that string-matches or parses the old output.
+* Send returns ErrUnnamedEvent, and Can reports false, for an event with no name: a non-string, non-struct kind with no EventName method and no MachineConfig.EventName, a nil event, an anonymous struct, or an empty name. Such events previously dispatched on their type name or fell through to a "*" handler. Set MachineConfig.EventName or add an EventName method.
+* every fate.X is now engine.X, action.X, effect.X, persist.X or describe.X. Symbol names are unchanged; see docs/adr/0007-package-layout.md for the mapping. Action.Apply, action.Sink, Cond.Matches, CondMeta.Seal and CondMeta.Clone are now exported.
+* correct parallel exit sets and make machine behaviour observable ([#1](https://github.com/arisros/fate/issues/1))
+* extract studio to its own repo; engine-only file-based CLI; docs (v0.4.0)
+
+### Added
+
+* add guard metadata and per-state view models for tooling ([#13](https://github.com/arisros/fate/issues/13)) ([2cc6f61](https://github.com/arisros/fate/commit/2cc6f61b3ea4132d42d73c5f940d261e26c5aaee))
+* add httphandler subpackage — fate machine as HTTP simulator API ([7389d13](https://github.com/arisros/fate/commit/7389d13b802a728200d73c2ff18af39f870b2aa0))
+* add Machine.Lint and reject an unresolved OnDone target ([#43](https://github.com/arisros/fate/issues/43)) ([4fb4496](https://github.com/arisros/fate/commit/4fb44969432b7bad297dba4a886e7629957174bb))
+* add MachineConfig.CloneContext for in-memory context copies ([#40](https://github.com/arisros/fate/issues/40)) ([317c5a0](https://github.com/arisros/fate/commit/317c5a0442a5e27ad83dc60f62611c338312cf43))
+* add Meta to states and transitions and publish it in the descriptor ([#42](https://github.com/arisros/fate/issues/42)) ([e1f0429](https://github.com/arisros/fate/commit/e1f04294d79494dc0a5241b9f73696c0b22e9c23))
+* **engine:** mark fallback transitions and lint shadowed ones ([#56](https://github.com/arisros/fate/issues/56)) ([0efdc0a](https://github.com/arisros/fate/commit/0efdc0a64632dc8a76e22fde410b4485b73a82b5))
+* **engine:** report where a machine and its guards and actions are written ([#58](https://github.com/arisros/fate/issues/58)) ([8c2b856](https://github.com/arisros/fate/commit/8c2b8565a1951d424e8842e68b34620a14cbb4e7))
+* fate — a statechart engine for Go (v0.1 engine + Temporal adapter) ([465fdce](https://github.com/arisros/fate/commit/465fdceff2bfd78f937dc94f8b81bdd38b2bfaee))
+* list the next and enabled events and preview an event without sending it ([#38](https://github.com/arisros/fate/issues/38)) ([70deea4](https://github.com/arisros/fate/commit/70deea446f2815e2db8e99b4f91b3c2a275f6e05))
+* record what each step did and deliver it to SubscribeSteps ([#41](https://github.com/arisros/fate/issues/41)) ([8a3b64b](https://github.com/arisros/fate/commit/8a3b64b0b67335ad6822808db4616ce671f2dbc2))
+* split the engine into packages and deprecate the root API ([#26](https://github.com/arisros/fate/issues/26)) ([7e71b2a](https://github.com/arisros/fate/commit/7e71b2a17f26be281fe06e9932b2e6b2389c8928))
+* **studio:** embeddable chart viewer + live simulator, scs/scs-web binaries (v0.2.0) ([7cc6129](https://github.com/arisros/fate/commit/7cc6129fcbabfdbd6d038d6fcce1c898fab86ed7))
+* **studio:** timer/invoke visualization + redesigned welcome page (Sentry design) (v0.3.0) ([7e7bf36](https://github.com/arisros/fate/commit/7e7bf3690bcaf511c770b012b89e74b55cc58b6f))
+
+
+### Fixed
+
+* call observers after the actor is unlocked ([#48](https://github.com/arisros/fate/issues/48)) ([f7d5d04](https://github.com/arisros/fate/commit/f7d5d042ba85f32edbef50e3c1f01c10fe535f7b))
+* complete parallel states and fire OnDone in every region ([#36](https://github.com/arisros/fate/issues/36)) ([9760c59](https://github.com/arisros/fate/commit/9760c59a594fadf6b2410d2ac6c3a70d16083d9a))
+* correct parallel exit sets and make machine behaviour observable ([#1](https://github.com/arisros/fate/issues/1)) ([ce6b387](https://github.com/arisros/fate/commit/ce6b387603b778e3e21d125c659fc29ff3ae728e))
+* **engine:** correct source location names and locate more of a machine ([#60](https://github.com/arisros/fate/issues/60)) ([8f0680a](https://github.com/arisros/fate/commit/8f0680a9716fceb7bcad11c597f59159e14fbba2))
+* enter what the transition commits for self-targets and deep history ([#15](https://github.com/arisros/fate/issues/15)) ([e339d10](https://github.com/arisros/fate/commit/e339d10f366d675a0c95650e00c6a5675ef6ee2f))
+* **persist:** prefix every parallel region in state value path ([#54](https://github.com/arisros/fate/issues/54)) ([e08e3f4](https://github.com/arisros/fate/commit/e08e3f410da1923ad18f27b24c725f336c2d287d))
+* reject a snapshot whose state value the machine does not have ([#37](https://github.com/arisros/fate/issues/37)) ([0fd2c6a](https://github.com/arisros/fate/commit/0fd2c6a5531fd80bdd6f146b22e44aca4fb194ec))
+* resolve event names for named string and enum types ([#50](https://github.com/arisros/fate/issues/50)) ([a2260a2](https://github.com/arisros/fate/commit/a2260a2a927490aefca40ecdf110c64de29f4aa4))
+* **studio:** context "[object Object]" + clipped per-node action rows ([17efaa0](https://github.com/arisros/fate/commit/17efaa03e7902357e7f8dfc67fc6050acf470311))
+
+
+### Changed
+
+* extract studio to its own repo; engine-only file-based CLI; docs (v0.4.0) ([e1413a6](https://github.com/arisros/fate/commit/e1413a64bac56f3666be1d9ae81af13fe550c506))
+
 ## [0.14.1](https://github.com/arisros/fate/compare/v0.14.0...v0.14.1) (2026-10-13)
 
 
