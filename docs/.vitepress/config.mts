@@ -61,6 +61,7 @@ export default defineConfig({
           { text: 'Effects and adapters', link: '/guide/effects-and-adapters' },
           { text: 'Persistence and determinism', link: '/guide/persistence-and-determinism' },
           { text: 'Temporal', link: '/guide/temporal' },
+          { text: 'Tooling and the studio', link: '/guide/tooling-and-studio' },
         ],
       },
       {
