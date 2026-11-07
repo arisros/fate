@@ -16,6 +16,8 @@ GitHub. For a first machine in a few lines, start with
 - [Persistence and determinism](guide/persistence-and-determinism.md) — how an
   actor serialises to JSON, and the rules that keep replay exact.
 - [Temporal](guide/temporal.md) — running a machine inside a Temporal workflow.
+- [Tooling and the studio](guide/tooling-and-studio.md): snapshots, live
+  simulation through `httphandler`, and embedding fate-studio.
 
 ## Reference
 

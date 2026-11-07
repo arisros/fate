@@ -168,6 +168,7 @@ pages are readable on GitHub:
 | [Persistence and determinism](./docs/guide/persistence-and-determinism.md) | How an actor serialises to JSON, and the rules that keep replay exact |
 | [Effects and adapters](./docs/guide/effects-and-adapters.md) | Delayed transitions and invocations as data, and how an adapter drives them |
 | [Temporal](./docs/guide/temporal.md) | Running a machine inside a Temporal workflow |
+| [Tooling and the studio](./docs/guide/tooling-and-studio.md) | Snapshots, live simulation through `httphandler`, and embedding fate-studio |
 | [Architecture Decision Records](./docs/adr) | The significant design choices, in the order they were made |
 
 Per-symbol reference lives on
