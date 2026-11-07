@@ -2,6 +2,9 @@ package temporal
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"reflect"
 	"sort"
 
 	"go.temporal.io/sdk/workflow"
@@ -17,6 +20,20 @@ type Options struct {
 	InvocationOptions func(inv effect.PendingInvocation) workflow.ActivityOptions
 	DecodeResult      func(inv effect.PendingInvocation, f workflow.Future) (any, error)
 	SignalName        string
+	DecodeSignal      func(ctx workflow.Context, c workflow.ReceiveChannel) (any, error)
+}
+
+// ErrNoSignalDecoder reports a signal channel for an interface event type with no Options.DecodeSignal to decode it.
+var ErrNoSignalDecoder = errors.New("fate/temporal: Evt is an interface, so signals need Options.DecodeSignal")
+
+func checkOptions[Evt any](opts Options) error {
+	if opts.SignalName == "" || opts.DecodeSignal != nil {
+		return nil
+	}
+	if t := reflect.TypeFor[Evt](); t.Kind() == reflect.Interface && t.NumMethod() > 0 {
+		return fmt.Errorf("%w (%s)", ErrNoSignalDecoder, t)
+	}
+	return nil
 }
 
 // WorkflowActor hosts a fate Actor inside a Temporal workflow.
@@ -43,6 +60,9 @@ func NewWorkflowActor[Ctx any, Evt any](
 	m *engine.Machine[Ctx, Evt],
 	opts Options,
 ) (*WorkflowActor[Ctx, Evt], error) {
+	if err := checkOptions[Evt](opts); err != nil {
+		return nil, err
+	}
 	a := engine.NewActor(m)
 	if err := a.Start(context.Background()); err != nil {
 		return nil, err
@@ -57,6 +77,9 @@ func NewWorkflowActorFromSnapshot[Ctx any, Evt any](
 	snapshot []byte,
 	opts Options,
 ) (*WorkflowActor[Ctx, Evt], error) {
+	if err := checkOptions[Evt](opts); err != nil {
+		return nil, err
+	}
 	a, err := engine.NewActorFromSnapshot[Ctx, Evt](m, snapshot)
 	if err != nil {
 		return nil, err
@@ -119,8 +142,11 @@ func (w *WorkflowActor[Ctx, Evt]) Run() (persist.Snapshot[Ctx], error) {
 		w.addInvokeBranches(ctx, sel, invokes)
 		if signalCh != nil {
 			sel.AddReceive(signalCh, func(c workflow.ReceiveChannel, _ bool) {
-				var evt Evt
-				c.Receive(ctx, &evt)
+				evt, ok, err := w.receive(ctx, c)
+				if err != nil || !ok {
+					sendErr = err
+					return
+				}
 				sendErr = w.actor.Send(context.Background(), evt)
 			})
 		}
@@ -131,6 +157,23 @@ func (w *WorkflowActor[Ctx, Evt]) Run() (persist.Snapshot[Ctx], error) {
 	}
 
 	return w.actor.Snapshot(), nil
+}
+
+func (w *WorkflowActor[Ctx, Evt]) receive(ctx workflow.Context, c workflow.ReceiveChannel) (Evt, bool, error) {
+	var evt Evt
+	if w.opts.DecodeSignal == nil {
+		c.Receive(ctx, &evt)
+		return evt, true, nil
+	}
+	v, err := w.opts.DecodeSignal(ctx, c)
+	if err != nil || v == nil {
+		return evt, false, err
+	}
+	evt, ok := v.(Evt)
+	if !ok {
+		return evt, false, fmt.Errorf("fate/temporal: DecodeSignal returned %T, want %s", v, reflect.TypeFor[Evt]())
+	}
+	return evt, true, nil
 }
 
 func (w *WorkflowActor[Ctx, Evt]) reconcileTimers(ctx workflow.Context, timers map[effect.TimerID]inflight) {

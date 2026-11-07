@@ -91,9 +91,68 @@ machine's types:
   Results are decoded into `interface{}`, so an `OnDone` mapper sees the decoded
   shape — `float64` for numbers, `map[string]interface{}` for objects — exactly
   as any activity caller would.
-- Events delivered by signal must be serialisable. A sealed-interface `Evt` needs
-  a custom data converter or a concrete envelope, the same constraint `Persist`
-  places on `Ctx` and `Evt`.
+- Events delivered by signal must be serialisable. A string or concrete struct
+  `Evt` decodes on its own; a sealed-interface `Evt` needs `DecodeSignal`, below.
+
+## Signals with interface events
+
+A signal payload is JSON, and JSON cannot be decoded into an interface. When
+`Evt` is an interface and `SignalName` is set, `NewWorkflowActor` returns
+`ErrNoSignalDecoder` unless `Options.DecodeSignal` is set.
+
+Send each event in an envelope that carries its name, and decode it in the
+workflow:
+
+```go
+type signal struct {
+	Name string
+	Data json.RawMessage
+}
+
+func decodeAs[E orderEvt](data json.RawMessage) (orderEvt, error) {
+	var e E
+	err := json.Unmarshal(data, &e)
+	return e, err
+}
+
+var signalEvents = map[string]func(json.RawMessage) (orderEvt, error){
+	"APPROVE": decodeAs[approve],
+}
+
+func decodeSignal(ctx workflow.Context, c workflow.ReceiveChannel) (any, error) {
+	var s signal
+	c.Receive(ctx, &s)
+	decode, ok := signalEvents[s.Name]
+	if !ok {
+		return nil, nil
+	}
+	return decode(s.Data)
+}
+
+wa, err := fatetemporal.NewWorkflowActor(ctx, m, fatetemporal.Options{
+	SignalName:   "events",
+	DecodeSignal: decodeSignal,
+})
+```
+
+The client sends the same envelope:
+
+```go
+data, _ := json.Marshal(approve{By: "ana"})
+err := c.SignalWorkflow(ctx, workflowID, "", "events", signal{Name: "APPROVE", Data: data})
+```
+
+`DecodeSignal` must call `c.Receive` exactly once. What it returns decides what
+happens:
+
+| Returns | Result |
+| --- | --- |
+| a value of type `Evt` | The actor receives it |
+| `nil, nil` | The signal is skipped, for example an unknown name |
+| an error, or a value that is not an `Evt` | `Run` stops and returns the error |
+
+A runnable version, with the activity, the timer and the client side, is
+[`Example_signals`](https://github.com/arisros/fate/blob/main/temporal/example_signals_test.go).
 
 ## Testing
 
