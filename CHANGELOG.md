@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While in `v0.x`, minor versions may contain breaking API changes; those are
 flagged explicitly under a **Breaking** heading.
 
+## [0.15.0](https://github.com/arisros/fate/compare/v0.14.1...v0.15.0) (2026-11-09)
+
+
+### Added
+
+* **temporal:** decode signals into interface events with DecodeSignal ([#76](https://github.com/arisros/fate/issues/76)) ([caa7661](https://github.com/arisros/fate/commit/caa76615195069a600896dccd15869833e428da3))
+
 ## [0.14.1](https://github.com/arisros/fate/compare/v0.14.0...v0.14.1) (2026-10-13)
 
 
