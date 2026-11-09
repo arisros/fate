@@ -1,0 +1,164 @@
+{
+  "events": [
+    {
+      "eventId": "1",
+      "eventTime": "2026-11-07T13:33:31.132176Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED",
+      "taskId": "1048587",
+      "workflowExecutionStartedEventAttributes": {
+        "workflowType": {
+          "name": "LegacySignalWorkflow"
+        },
+        "taskQueue": {
+          "name": "legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "workflowExecutionTimeout": "0s",
+        "workflowRunTimeout": "0s",
+        "workflowTaskTimeout": "10s",
+        "originalExecutionRunId": "01a1b636-dc7c-72ab-8d90-79707040dd04",
+        "identity": "fate-test",
+        "firstExecutionRunId": "01a1b636-dc7c-72ab-8d90-79707040dd04",
+        "attempt": 1,
+        "firstWorkflowTaskBackoff": "0s",
+        "header": {},
+        "workflowId": "legacy-interface-signal"
+      }
+    },
+    {
+      "eventId": "2",
+      "eventTime": "2026-11-07T13:33:31.132593Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "taskId": "1048588",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "3",
+      "eventTime": "2026-11-07T13:33:31.137427Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "taskId": "1048593",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "2",
+        "identity": "fate-test",
+        "requestId": "62495802-db5b-48ed-863a-cde574f1e793",
+        "historySizeBytes": "245",
+        "workerVersion": {
+          "buildId": "777daf0a9e2759eed4488d3c074ddcc8"
+        }
+      }
+    },
+    {
+      "eventId": "4",
+      "eventTime": "2026-11-07T13:33:31.141882Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "taskId": "1048597",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "2",
+        "startedEventId": "3",
+        "identity": "fate-test",
+        "workerVersion": {
+          "buildId": "777daf0a9e2759eed4488d3c074ddcc8"
+        },
+        "sdkMetadata": {
+          "langUsedFlags": [
+            3
+          ],
+          "sdkName": "temporal-go",
+          "sdkVersion": "1.48.0"
+        },
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "5",
+      "eventTime": "2026-11-07T13:33:31.142061Z",
+      "eventType": "EVENT_TYPE_TIMER_STARTED",
+      "taskId": "1048598",
+      "timerStartedEventAttributes": {
+        "timerId": "5",
+        "startToFireTimeout": "3600s",
+        "workflowTaskCompletedEventId": "4"
+      }
+    },
+    {
+      "eventId": "6",
+      "eventTime": "2026-11-07T13:33:32.140343Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_SIGNALED",
+      "taskId": "1048602",
+      "workflowExecutionSignaledEventAttributes": {
+        "signalName": "events",
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJCeSI6ImFuYSJ9"
+            }
+          ]
+        },
+        "identity": "fate-test",
+        "header": {},
+        "requestId": "16df58d2-6a6c-4053-998c-41c2e3a33632"
+      }
+    },
+    {
+      "eventId": "7",
+      "eventTime": "2026-11-07T13:33:32.140437Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "taskId": "1048603",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fate-test:sticky",
+          "kind": "TASK_QUEUE_KIND_STICKY",
+          "normalName": "legacy"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "8",
+      "eventTime": "2026-11-07T13:33:32.144469Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "taskId": "1048607",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "7",
+        "identity": "fate-test",
+        "requestId": "71c7fdb6-79e3-4382-adfd-b1f2ab172453",
+        "historySizeBytes": "744",
+        "workerVersion": {
+          "buildId": "777daf0a9e2759eed4488d3c074ddcc8"
+        }
+      }
+    },
+    {
+      "eventId": "9",
+      "eventTime": "2026-11-07T13:33:32.148737Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "taskId": "1048611",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "7",
+        "startedEventId": "8",
+        "identity": "fate-test",
+        "workerVersion": {
+          "buildId": "777daf0a9e2759eed4488d3c074ddcc8"
+        },
+        "sdkMetadata": {
+          "langUsedFlags": [
+            5,
+            8
+          ]
+        },
+        "meteringMetadata": {}
+      }
+    }
+  ]
+}
